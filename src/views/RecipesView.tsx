@@ -1,14 +1,16 @@
 import { useMemo, useState, useDeferredValue } from 'react';
-import { useStore, setPrefs, toggleFav, visibleRecipes } from '../lib/store';
+import { useStore, setPrefs, visibleRecipes, setSlot } from '../lib/store';
 import { textFor, dietOf, matchesDiet, totalMinutes, fmtMinutes } from '../lib/ingredients';
-import { avgRating, isComplete } from '../lib/plan';
+import { avgRating, isComplete, iso, mealsOn, mondayOf, addDays } from '../lib/plan';
+import { useQuickAdd, openDayPicker } from '../components/menu';
 import { go } from '../lib/router';
-import { Icon, Photo, Sheet, useT } from '../components/ui';
+import { Icon, Photo, Sheet, TagPills, toast, useT } from '../components/ui';
 import type { Category, DietFilter, Recipe } from '../lib/types';
 
 type Sort = 'rating' | 'az' | 'time' | 'new';
 const CATS: ('all' | Category)[] = ['all', 'plats', 'entrees', 'salades', 'desserts'];
 const DIETS: DietFilter[] = ['veg', 'gf', 'df', 'ef', 'quick'];
+const CAT_EMOJI: Record<string, string> = { all: '✨', plats: '🍲', entrees: '🥟', salades: '🥗', desserts: '🍰' };
 
 function fold(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -29,8 +31,10 @@ export function RecipesView() {
   const recipes = useMemo(() => visibleRecipes(data), [data]);
   const diets = useMemo(() => new Map(recipes.map((r) => [r.id, dietOf(r)])), [recipes]);
   const planned = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return new Set(Object.entries(data.plan.slots).filter(([k, e]) => !e.deleted && k >= today).map(([, e]) => e.id));
+    const today = iso(new Date());
+    const m = new Map<number, string>();
+    for (const [k, e] of Object.entries(data.plan.slots)) if (!e.deleted && k.split('|')[0] >= today && !m.has(e.id)) m.set(e.id, k);
+    return m;
   }, [data.plan]);
 
   const list = useMemo(() => {
@@ -68,12 +72,7 @@ export function RecipesView() {
   return (
     <div className="page">
       <header className="page-head">
-        <div className="title-row">
-          <div>
-            <h1>{t.appName}</h1>
-            <p className="muted small">{t.tagline}</p>
-          </div>
-        </div>
+        <Welcome />
         <div className="search">
           <Icon name="search" size={18} />
           <input
@@ -95,7 +94,7 @@ export function RecipesView() {
         <div className="chips scroll-x">
           {CATS.map((c) => (
             <button key={c} className={'chip' + (cat === c ? ' on' : '')} onClick={() => { setCat(c); persist('cb_cat', c); }}>
-              {c === 'all' ? t.all : t[`cat_${c}` as const]}
+              {CAT_EMOJI[c]} {c === 'all' ? t.all : t[`cat_${c}` as const]}
             </button>
           ))}
           <span className="chip-sep" />
@@ -133,7 +132,7 @@ export function RecipesView() {
       ) : (
         <div className="grid">
           {list.map((r) => (
-            <RecipeCard key={r.id} r={r} lang={lang} fav={prefs.favs.includes(r.id)} rating={avgRating(data.ratings[String(r.id)])} planned={planned.has(r.id)} />
+            <RecipeCard key={r.id} r={r} lang={lang} fav={prefs.favs.includes(r.id)} rating={avgRating(data.ratings[String(r.id)])} plannedKey={planned.get(r.id)} />
           ))}
         </div>
       )}
@@ -151,30 +150,87 @@ export function RecipesView() {
   );
 }
 
-function RecipeCard({ r, lang, fav, rating, planned }: { r: Recipe; lang: 'fr' | 'en' | 'vi'; fav: boolean; rating: number; planned: boolean }) {
+function Welcome() {
   const t = useT();
+  const data = useStore((s) => s.data);
+  const lang = useStore((s) => s.prefs.lang);
+  const h = new Date().getHours();
+  const hi = h < 12 ? t.hiMorning : h < 18 ? t.hiAfternoon : t.hiEvening;
+  const today = iso(new Date());
+  const tonight = mealsOn(data, today, 'dinner')
+    .map((m) => data.recipes.find((r) => r.id === m.id))
+    .filter(Boolean) as Recipe[];
+  const start = mondayOf(new Date());
+  let weekCount = 0;
+  for (let i = 0; i < 7; i++) weekCount += mealsOn(data, iso(addDays(start, i)), 'dinner').length + mealsOn(data, iso(addDays(start, i)), 'lunch').length;
+  const total = data.recipes.filter((r) => !r.deleted).length;
+  return (
+    <section className="welcome">
+      <div className="welcome-deco" aria-hidden="true">
+        <span>🥕</span><span>🍋</span><span>🧁</span><span>🍅</span><span>🥖</span><span>🍓</span>
+      </div>
+      <p className="welcome-hi">{hi} 👋</p>
+      <h1 className="welcome-title">{t.welcomeTitle}</h1>
+      <p className="welcome-q">{t.welcomeQ}</p>
+      <div className="welcome-tonight">
+        {tonight.length ? (
+          tonight.map((r) => (
+            <button key={r.id} className="tonight-card" onClick={() => go(`r/${r.id}`)}>
+              <Photo src={r.photo} emoji={r.emoji} className="tonight-img" cat={r.category} />
+              <span>
+                <span className="small">{t.tonight}</span>
+                <b>{textFor(r, lang).title}</b>
+              </span>
+            </button>
+          ))
+        ) : (
+          <button className="tonight-card empty" onClick={() => go('plan')}>
+            <span className="tonight-img photo-fallback"><span>🍽️</span></span>
+            <span>
+              <span className="small">{t.tonight}</span>
+              <b>{t.nothingTonight}</b>
+            </span>
+            <Icon name="chevronR" size={18} />
+          </button>
+        )}
+      </div>
+      <p className="welcome-stats">📖 {t.recipesCount(total)} · 📅 {t.plannedThisWeek(weekCount)}</p>
+    </section>
+  );
+}
+
+function RecipeCard({ r, lang, fav, rating, plannedKey }: { r: Recipe; lang: 'fr' | 'en' | 'vi'; fav: boolean; rating: number; plannedKey?: string }) {
+  const t = useT();
+  const quickAdd = useQuickAdd();
   const tx = textFor(r, lang);
   const mins = totalMinutes(r);
   const complete = isComplete(r);
   return (
-    <article className="card" onClick={() => go(`r/${r.id}`)} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && go(`r/${r.id}`)}>
+    <article className={'card cat-' + r.category} onClick={() => go(`r/${r.id}`)} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && go(`r/${r.id}`)}>
       <div className="card-img">
-        <Photo src={r.photo} emoji={r.emoji} />
-        <button
-          className={'fav-btn' + (fav ? ' on' : '')}
-          aria-label={t.favourites}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleFav(r.id);
-          }}
-        >
-          <Icon name="heart" size={18} fill={fav} />
-        </button>
-        {planned && <span className="badge planned">{t.inMenu}</span>}
+        <Photo src={r.photo} emoji={r.emoji} cat={r.category} />
+        {complete && (
+          <button
+            className={'menu-btn' + (plannedKey ? ' on' : '')}
+            aria-label={plannedKey ? t.inMenu : t.addToMenu}
+            title={plannedKey ? t.inMenu : t.addToMenu}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (plannedKey) {
+                setSlot(plannedKey, null);
+                toast(t.removedFromMenu, { label: t.chooseDay, onClick: () => openDayPicker(r) });
+              } else quickAdd(r);
+            }}
+          >
+            <Icon name={plannedKey ? 'check' : 'calendar'} size={17} />
+            <span>{plannedKey ? t.inMenu : t.addToMenu}</span>
+          </button>
+        )}
+        {fav && <span className="fav-flag" aria-label={t.favourites}>♥</span>}
         {!complete && <span className="badge todo">{t.toComplete}</span>}
       </div>
       <div className="card-body">
-        <h3>{tx.title}</h3>
+        <h3><span className="card-emoji" aria-hidden="true">{r.emoji}</span> {tx.title}</h3>
         <div className="card-meta">
           {mins ? (
             <span>
@@ -182,8 +238,8 @@ function RecipeCard({ r, lang, fav, rating, planned }: { r: Recipe; lang: 'fr' |
             </span>
           ) : null}
           {rating > 0 && <span className="rating">★ {rating.toFixed(1)}</span>}
-          <span className="cat">{t[`cat_${r.category}` as const]}</span>
         </div>
+        <TagPills tags={r.tags} limit={2} />
       </div>
     </article>
   );

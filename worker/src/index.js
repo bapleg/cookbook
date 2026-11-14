@@ -226,10 +226,10 @@ You receive one recipe (title, ingredients, directions, notes) in any language.
 Return ONLY a JSON object: {"lang":"fr"|"en","fr":R,"en":R${'${VI}'}} where R = {"title":string,"ingredients":string[],"directions":string,"notes":string}.
 Rules:
 - "lang" = the language the recipe was written in.
-- "fr" is natural, idiomatic French (France). "en" is natural British English (courgette, aubergine, coriander, spring onions, prawns, plain flour, caster sugar, icing sugar, cornflour, double cream, bicarbonate of soda, mince, hob, grill, baking tray).
-- Metric only: grams, kg, ml, cl, litres, °C, cm. Convert cups, oz, lb, fl oz, sticks, °F and inches. Keep teaspoon/tablespoon (FR: c. à c. / c. à s.; EN: tsp / tbsp).
+- "fr" is natural, idiomatic French (France). "en" is natural Australian English (zucchini, eggplant, capsicum, coriander, spring onions, prawns, rocket, plain flour, caster sugar, icing sugar, cornflour, thickened cream, bicarb soda, mince, canola oil, chilli, stovetop, grill, baking tray, cling wrap; spelling: colour, flavour, centre).
+- Metric only: grams, kg, ml, cl, litres, °C, cm. Convert cups, oz, lb, fl oz, sticks, °F and inches. Keep teaspoon/tablespoon (FR: c. à c. / c. à s.; EN: tsp / tbsp. French text must contain no English words).
 - Ingredients: one per line, format "<quantity> <unit> <ingredient>, <preparation>" e.g. "200 g plain flour", "2 courgettes, diced", "1 tbsp olive oil".
-  Use the plain, standard shop name of the ingredient (e.g. "spring onions" never "scallions"/"green onions"; "oignons verts" never "cébettes"/"oignons nouveaux"; "chicken breasts"/"blancs de poulet"). Put preparation after the comma, never inside the name.
+  Use the plain, standard shop name of the ingredient (e.g. "spring onions" never "scallions"/"green onions"; "oignons verts" never "cébettes"/"oignons nouveaux"; "chicken breast"/"blancs de poulet"). Put preparation after the comma, never inside the name.
 - Keep every ingredient and every step; do not invent or drop anything; keep quantities identical after conversion.
 - "directions": one step per line separated by "\\n", no numbering.
 - Fix obvious typos. Keep it concise.`;

@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react';
 import { useStore, setSlot, setSlots, setPrefs, visibleRecipes } from '../lib/store';
 import { textFor, totalMinutes, fmtMinutes } from '../lib/ingredients';
-import { iso, addDays, mondayOf, slotKey, dayLabel, suggest, avgRating, lastPlanned, isComplete, defaultServings } from '../lib/plan';
+import { iso, addDays, mondayOf, slotKey, dayLabel, suggest, avgRating, lastPlanned, isComplete, defaultServings, mealsOn, keyDate } from '../lib/plan';
 import { go } from '../lib/router';
 import { Icon, Photo, Sheet, Stepper, toast, useT } from '../components/ui';
 import type { MealSlot, Recipe } from '../lib/types';
+
+const MAX_PER_SLOT = 3;
 
 export function PlanView() {
   const t = useT();
   const data = useStore((s) => s.data);
   const prefs = useStore((s) => s.prefs);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [picker, setPicker] = useState<{ key: string } | null>(null);
-  const [menu, setMenu] = useState<{ key: string } | null>(null);
+  const [picker, setPicker] = useState<{ day: string; slot: MealSlot; replace?: string } | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
 
   const start = addDays(mondayOf(new Date()), weekOffset * 7);
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -20,23 +22,18 @@ export function PlanView() {
   const slots: MealSlot[] = prefs.showLunch ? ['lunch', 'dinner'] : ['dinner'];
   const byId = useMemo(() => new Map(data.recipes.map((r) => [r.id, r])), [data.recipes]);
 
-  const entry = (key: string) => {
-    const e = data.plan.slots[key];
-    return e && !e.deleted && byId.get(e.id) && !byId.get(e.id)!.deleted ? e : null;
-  };
-
-  const weekKeys = days.flatMap((d) => slots.map((s) => slotKey(iso(d), s)));
-  const plannedCount = weekKeys.filter((k) => entry(k)).length;
+  const weekMeals = days.flatMap((d) => (['lunch', 'dinner'] as MealSlot[]).flatMap((s) => mealsOn(data, iso(d), s)));
+  const shownCount = days.flatMap((d) => slots.flatMap((s) => mealsOn(data, iso(d), s))).length;
 
   const autofill = () => {
-    const empty = days.filter((d) => iso(d) >= today).map((d) => slotKey(iso(d), 'dinner')).filter((k) => !entry(k));
-    if (!empty.length) return;
-    const exclude = new Set(weekKeys.map((k) => entry(k)?.id).filter(Boolean) as number[]);
-    const picks = suggest(data, prefs.favs, exclude, today, empty.length);
+    const emptyDays = days.map(iso).filter((d) => d >= today && mealsOn(data, d, 'dinner').length === 0);
+    if (!emptyDays.length) return;
+    const exclude = new Set(weekMeals.map((m) => m.id));
+    const picks = suggest(data, prefs.favs, exclude, today, emptyDays.length);
     const upd: Record<string, { id: number; servings: number }> = {};
-    empty.forEach((k, i) => {
+    emptyDays.forEach((d, i) => {
       const r = picks[i];
-      if (r) upd[k] = { id: r.id, servings: defaultServings(r, prefs.householdServings) };
+      if (r) upd[slotKey(d, 'dinner', r.id)] = { id: r.id, servings: defaultServings(r, prefs.householdServings) };
     });
     setSlots(upd);
     toast(`${Object.keys(upd).length} ✓`);
@@ -45,10 +42,14 @@ export function PlanView() {
   const copyLastWeek = () => {
     const upd: Record<string, { id: number; servings: number }> = {};
     days.forEach((d) => {
+      const day = iso(d);
+      if (day < today) return;
       const prev = iso(addDays(d, -7));
       (['lunch', 'dinner'] as MealSlot[]).forEach((s) => {
-        const e = entry(slotKey(prev, s));
-        if (e && !entry(slotKey(iso(d), s)) && iso(d) >= today) upd[slotKey(iso(d), s)] = { id: e.id, servings: e.servings };
+        const existing = new Set(mealsOn(data, day, s).map((m) => m.id));
+        mealsOn(data, prev, s).forEach((m) => {
+          if (!existing.has(m.id)) upd[slotKey(day, s, m.id)] = { id: m.id, servings: m.servings };
+        });
       });
     });
     setSlots(upd);
@@ -58,12 +59,14 @@ export function PlanView() {
   const clearWeek = () => {
     if (!confirm(t.clearWeekConfirm)) return;
     const upd: Record<string, null> = {};
-    weekKeys.filter((k) => entry(k) && k >= today).forEach((k) => (upd[k] = null));
+    weekMeals.filter((m) => keyDate(m.key) >= today).forEach((m) => (upd[m.key] = null));
     setSlots(upd);
   };
 
   const lbl0 = dayLabel(start, prefs.lang);
   const lbl6 = dayLabel(days[6], prefs.lang);
+  const menuEntry = menu ? data.plan.slots[menu] : null;
+  const menuRecipe = menuEntry ? byId.get(menuEntry.id) : null;
 
   return (
     <div className="page">
@@ -91,7 +94,7 @@ export function PlanView() {
           <button className={'chip' + (prefs.showLunch ? ' on' : '')} onClick={() => setPrefs({ showLunch: !prefs.showLunch })}>
             {t.showLunch}
           </button>
-          {plannedCount > 0 && (
+          {shownCount > 0 && (
             <button className="chip" onClick={clearWeek}>
               <Icon name="trash" size={14} /> {t.clearWeek}
             </button>
@@ -99,7 +102,7 @@ export function PlanView() {
         </div>
       </header>
 
-      {plannedCount === 0 && (
+      {shownCount === 0 && (
         <div className="hint-card">
           <b>{t.planEmpty}</b>
           <span className="muted small">{t.planEmptyHint}</span>
@@ -119,26 +122,29 @@ export function PlanView() {
               </div>
               <div className="day-slots">
                 {slots.map((s) => {
-                  const key = slotKey(day, s);
-                  const e = entry(key);
-                  const r = e ? byId.get(e.id)! : null;
+                  const meals = mealsOn(data, day, s);
                   return (
                     <div key={s} className="slot">
                       {prefs.showLunch && <span className="slot-name">{s === 'lunch' ? t.lunch : t.dinner}</span>}
-                      {r && e ? (
-                        <div className="meal" onClick={() => setMenu({ key })}>
-                          <Photo src={r.photo} emoji={r.emoji} className="meal-img" />
-                          <div className="meal-body">
-                            <b>{textFor(r, prefs.lang).title}</b>
-                            <span className="muted small">
-                              {e.servings} {t.people}
-                              {totalMinutes(r) ? ` · ${fmtMinutes(totalMinutes(r))}` : ''}
-                            </span>
+                      {meals.map((m) => {
+                        const r = byId.get(m.id)!;
+                        const mins = totalMinutes(r);
+                        return (
+                          <div key={m.key} className="meal" onClick={() => setMenu(m.key)}>
+                            <Photo src={r.photo} emoji={r.emoji} className="meal-img" cat={r.category} />
+                            <div className="meal-body">
+                              <b>{textFor(r, prefs.lang).title}</b>
+                              <span className="muted small">
+                                {m.servings} {t.people}
+                                {mins ? ` · ${fmtMinutes(mins)}` : ''}
+                              </span>
+                            </div>
+                            <Icon name="more" size={18} />
                           </div>
-                          <Icon name="more" size={18} />
-                        </div>
-                      ) : (
-                        <button className="meal-add" disabled={past} onClick={() => setPicker({ key })}>
+                        );
+                      })}
+                      {!past && meals.length < MAX_PER_SLOT && (
+                        <button className={'meal-add' + (meals.length ? ' compact' : '')} onClick={() => setPicker({ day, slot: s })}>
                           <Icon name="plus" size={16} /> {t.addMeal}
                         </button>
                       )}
@@ -154,37 +160,39 @@ export function PlanView() {
       <RecipePicker
         open={!!picker}
         onClose={() => setPicker(null)}
-        exclude={new Set(weekKeys.map((k) => entry(k)?.id).filter(Boolean) as number[])}
+        exclude={new Set(weekMeals.map((m) => m.id))}
         onPick={(r) => {
-          if (picker) setSlot(picker.key, { id: r.id, servings: defaultServings(r, prefs.householdServings) });
+          if (picker) {
+            if (picker.replace) setSlot(picker.replace, null);
+            setSlot(slotKey(picker.day, picker.slot, r.id), { id: r.id, servings: defaultServings(r, prefs.householdServings) });
+          }
           setPicker(null);
         }}
       />
 
-      {menu && (() => {
-        const e = entry(menu.key);
-        const r = e ? byId.get(e.id) : null;
-        if (!e || !r) return null;
-        return (
-          <Sheet open onClose={() => setMenu(null)} title={textFor(r, prefs.lang).title}>
-            <div className="menu-sheet">
-              <div className="row-between">
-                <span>{t.servings}</span>
-                <Stepper value={e.servings} onChange={(n) => setSlot(menu.key, { id: e.id, servings: n })} />
-              </div>
-              <button className="btn block" onClick={() => { setMenu(null); go(`r/${r.id}`); }}>
-                <Icon name="book" size={18} /> {t.navRecipes}
-              </button>
-              <button className="btn block" onClick={() => { const k = menu.key; setMenu(null); setPicker({ key: k }); }}>
-                <Icon name="refresh" size={18} /> {t.change}
-              </button>
-              <button className="btn block danger" onClick={() => { setSlot(menu.key, null); setMenu(null); }}>
-                <Icon name="trash" size={18} /> {t.remove}
-              </button>
+      {menu && menuEntry && menuRecipe && !menuEntry.deleted && (
+        <Sheet open onClose={() => setMenu(null)} title={`${menuRecipe.emoji} ${textFor(menuRecipe, prefs.lang).title}`}>
+          <div className="menu-sheet">
+            <div className="row-between">
+              <span>{t.servings}</span>
+              <Stepper value={menuEntry.servings} onChange={(n) => setSlot(menu, { id: menuEntry.id, servings: n })} />
             </div>
-          </Sheet>
-        );
-      })()}
+            <button className="btn block" onClick={() => { setMenu(null); go(`r/${menuRecipe.id}`); }}>
+              <Icon name="book" size={18} /> {t.navRecipes}
+            </button>
+            <button className="btn block" onClick={() => {
+              const [day, slot] = menu.split('|');
+              setMenu(null);
+              setPicker({ day, slot: (slot || 'dinner') as MealSlot, replace: menu });
+            }}>
+              <Icon name="refresh" size={18} /> {t.change}
+            </button>
+            <button className="btn block danger" onClick={() => { setSlot(menu, null); setMenu(null); }}>
+              <Icon name="trash" size={18} /> {t.remove}
+            </button>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -212,9 +220,7 @@ function RecipePicker({ open, onClose, onPick, exclude }: { open: boolean; onClo
   }, [open, data, prefs.favs]);
 
   const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const shown = q
-    ? lists.all.filter((r) => fold(textFor(r, prefs.lang).title + ' ' + (r.fr?.ingredients || []).join(' ')).includes(fold(q)))
-    : lists[tab];
+  const shown = q ? lists.all.filter((r) => fold(textFor(r, prefs.lang).title + ' ' + (r.fr?.ingredients || []).join(' ')).includes(fold(q))) : lists[tab];
 
   return (
     <Sheet open={open} onClose={onClose} title={t.pickRecipe}>
@@ -224,15 +230,8 @@ function RecipePicker({ open, onClose, onPick, exclude }: { open: boolean; onClo
       </div>
       {!q && (
         <div className="chips scroll-x">
-          {([
-            ['sugg', t.suggestions],
-            ['fav', t.favouritesShort],
-            ['top', t.topRated],
-            ['quick', t.quick]
-          ] as const).map(([k, l]) => (
-            <button key={k} className={'chip' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>
-              {l}
-            </button>
+          {([['sugg', t.suggestions], ['fav', t.favouritesShort], ['top', t.topRated], ['quick', t.quick]] as const).map(([k, l]) => (
+            <button key={k} className={'chip' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
       )}
@@ -243,12 +242,10 @@ function RecipePicker({ open, onClose, onPick, exclude }: { open: boolean; onClo
           const m = totalMinutes(r);
           return (
             <button key={r.id} className="pick-item" onClick={() => onPick(r)}>
-              <Photo src={r.photo} emoji={r.emoji} className="pick-img" />
+              <Photo src={r.photo} emoji={r.emoji} className="pick-img" cat={r.category} />
               <span className="pick-text">
                 <b>{textFor(r, prefs.lang).title}</b>
-                <span className="muted small">
-                  {[m ? fmtMinutes(m) : '', avg ? `★ ${avg.toFixed(1)}` : '', prefs.favs.includes(r.id) ? '♥' : ''].filter(Boolean).join(' · ')}
-                </span>
+                <span className="muted small">{[m ? fmtMinutes(m) : '', avg ? `★ ${avg.toFixed(1)}` : '', prefs.favs.includes(r.id) ? '♥' : ''].filter(Boolean).join(' · ')}</span>
               </span>
             </button>
           );

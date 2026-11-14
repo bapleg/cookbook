@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useStore, toggleFav, rate, deleteRecipe, setSlot, getState } from '../lib/store';
+import { useStore, toggleFav, rate, deleteRecipe } from '../lib/store';
 import { textFor, stepsOf, scaleLine, parseServings, totalMinutes, fmtMinutes, isSectionHeader, cleanLine } from '../lib/ingredients';
-import { avgRating, iso, addDays, mondayOf, slotKey, dayLabel, defaultServings } from '../lib/plan';
+import { avgRating, iso, dayLabel, fromIso } from '../lib/plan';
 import { go } from '../lib/router';
-import { Icon, Photo, Sheet, Stars, Stepper, toast, useT } from '../components/ui';
+import { Icon, Photo, Stars, Stepper, TagPills, toast, useT } from '../components/ui';
+import { useQuickAdd, openDayPicker } from '../components/menu';
 import { LANGS, MEMBERS } from '../lib/i18n';
-import type { Lang, Member, MealSlot } from '../lib/types';
+import type { Lang, Member } from '../lib/types';
 
 export function RecipeView({ id }: { id: number }) {
   const t = useT();
@@ -18,7 +19,7 @@ export function RecipeView({ id }: { id: number }) {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [step, setStep] = useState<number | null>(null);
   const [awake, setAwake] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
+  const quickAdd = useQuickAdd();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -95,15 +96,12 @@ export function RecipeView({ id }: { id: number }) {
   return (
     <div className="page recipe-page">
       <div className="hero">
-        <Photo src={r.photo} emoji={r.emoji} className="hero-img" />
+        <Photo src={r.photo} emoji={r.emoji} className="hero-img" cat={r.category} />
         <div className="hero-bar">
           <button className="icon-btn glass" onClick={() => (history.length > 1 ? history.back() : go(''))} aria-label={t.back}>
             <Icon name="back" />
           </button>
           <div className="hero-actions">
-            <button className={'icon-btn glass' + (fav ? ' fav-on' : '')} onClick={() => toggleFav(r.id)} aria-label={t.favourites}>
-              <Icon name="heart" fill={fav} />
-            </button>
             <button className="icon-btn glass" onClick={share} aria-label={t.share}>
               <Icon name="share" />
             </button>
@@ -113,9 +111,8 @@ export function RecipeView({ id }: { id: number }) {
 
       <div className="recipe-wrap">
         <div className="recipe-head">
-          <div className="eyebrow">
-            {r.emoji} {t[`cat_${r.category}` as const]}
-            {r.author ? ` · ${t.by} ${r.author}` : ''}
+          <div className={'eyebrow cat-text-' + r.category}>
+            <span className="eyebrow-emoji">{r.emoji}</span> {t[`cat_${r.category}` as const]}
           </div>
           <h1>{tx.title}</h1>
           <div className="facts">
@@ -124,14 +121,17 @@ export function RecipeView({ id }: { id: number }) {
             ) : null}
             {r.prepTime && <span className="muted">{t.prep} {r.prepTime}</span>}
             {r.cookTime && <span className="muted">{t.cook} {r.cookTime}</span>}
-            {tx.difficulty && <span className="muted">{tx.difficulty}</span>}
+            {tx.difficulty && <span className="muted">{difficultyLabel(tx.difficulty, lang)}</span>}
             {avg > 0 && <span className="rating">★ {avg.toFixed(1)}</span>}
           </div>
-          {(r.tags || []).length > 0 && (
-            <div className="tags">
-              {r.tags.map((tg) => (
-                <span key={tg} className="tag">{tg}</span>
-              ))}
+          <TagPills tags={r.tags} />
+          {r.author && (
+            <div className="from-card">
+              <span className="from-avatar" aria-hidden="true">{authorEmoji(r.author)}</span>
+              <span>
+                <span className="small muted">{t.recipeFrom}</span>
+                <b>{r.author}</b>
+              </span>
             </div>
           )}
           {available.length > 1 && (
@@ -145,8 +145,17 @@ export function RecipeView({ id }: { id: number }) {
           )}
 
           <div className="action-row">
-            <button className="btn primary" onClick={() => setPlanOpen(true)}>
-              <Icon name="calendar" size={18} /> {upcoming.length ? `${t.inMenu} · ${upcoming.length}` : t.addToMenu}
+            {upcoming.length ? (
+              <button className="btn primary on-menu" onClick={() => openDayPicker(r)}>
+                <Icon name="check" size={18} /> {t.inMenu} · {upcoming.map((k) => { const l = dayLabel(fromIso(k.split('|')[0]), prefs.lang); return `${l.short} ${l.num}`; }).join(', ')}
+              </button>
+            ) : (
+              <button className="btn primary" onClick={() => quickAdd(r, base ? servings : undefined)}>
+                <Icon name="calendar" size={18} /> {t.addToMenu}
+              </button>
+            )}
+            <button className={'btn' + (fav ? ' fav-on' : '')} onClick={() => toggleFav(r.id)}>
+              <Icon name="heart" size={18} fill={fav} /> {t.favourites}
             </button>
             <button className={'btn' + (awake ? ' on' : '')} onClick={() => setAwake(!awake)} title={t.keepAwake}>
               <Icon name="sun" size={18} /> {t.keepAwake}
@@ -230,65 +239,33 @@ export function RecipeView({ id }: { id: number }) {
         </div>
       </div>
 
-      <AddToPlanSheet open={planOpen} onClose={() => setPlanOpen(false)} recipeId={r.id} servings={servings} />
     </div>
   );
 }
 
-function AddToPlanSheet({ open, onClose, recipeId, servings }: { open: boolean; onClose: () => void; recipeId: number; servings: number }) {
-  const t = useT();
-  const data = useStore((s) => s.data);
-  const prefs = useStore((s) => s.prefs);
-  const [weekOffset, setWeekOffset] = useState(0);
-  const start = addDays(mondayOf(new Date()), weekOffset * 7);
-  const today = iso(new Date());
-  const slots: MealSlot[] = prefs.showLunch ? ['lunch', 'dinner'] : ['dinner'];
-  const r = data.recipes.find((x) => x.id === recipeId)!;
-  const serv = servings || defaultServings(r, prefs.householdServings);
+function difficultyLabel(d: string, lang: Lang): string {
+  const k = d.toLowerCase().trim();
+  const map: Record<string, [string, string]> = {
+    'very easy': ['Très facile', 'Very easy'], 'très facile': ['Très facile', 'Very easy'],
+    easy: ['Facile', 'Easy'], facile: ['Facile', 'Easy'], sayon: ['Facile', 'Easy'],
+    medium: ['Moyen', 'Medium'], moyen: ['Moyen', 'Medium'], moyenne: ['Moyen', 'Medium'],
+    hard: ['Difficile', 'Hard'], difficile: ['Difficile', 'Hard']
+  };
+  const m = map[k];
+  if (!m) return d;
+  return lang === 'fr' ? m[0] : lang === 'en' ? m[1] : d;
+}
 
-  return (
-    <Sheet open={open} onClose={onClose} title={t.addToMenu}>
-      <div className="week-nav">
-        <button className="icon-btn" onClick={() => setWeekOffset(weekOffset - 1)} disabled={weekOffset <= 0} aria-label="‹"><Icon name="chevronL" /></button>
-        <span>{weekOffset === 0 ? t.thisWeek : `${t.weekOf} ${dayLabel(start, prefs.lang).num} ${dayLabel(start, prefs.lang).month}`}</span>
-        <button className="icon-btn" onClick={() => setWeekOffset(weekOffset + 1)} aria-label="›"><Icon name="chevronR" /></button>
-      </div>
-      <div className="pick-days">
-        {Array.from({ length: 7 }, (_, i) => addDays(start, i)).map((d) => {
-          const day = iso(d);
-          const past = day < today;
-          const lbl = dayLabel(d, prefs.lang);
-          return (
-            <div key={day} className={'pick-day' + (past ? ' past' : '')}>
-              <div className="pick-date">
-                <b>{lbl.short}</b> {lbl.num}
-              </div>
-              {slots.map((s) => {
-                const e = data.plan.slots[slotKey(day, s)];
-                const occupied = e && !e.deleted ? getState().data.recipes.find((x) => x.id === e.id) : undefined;
-                const mine = occupied?.id === recipeId;
-                return (
-                  <button
-                    key={s}
-                    disabled={past}
-                    className={'pick-slot' + (mine ? ' on' : '') + (occupied && !mine ? ' taken' : '')}
-                    onClick={() => {
-                      if (mine) setSlot(slotKey(day, s), null);
-                      else {
-                        setSlot(slotKey(day, s), { id: recipeId, servings: serv });
-                        toast(`${t.inMenu} · ${lbl.short} ${lbl.num}`);
-                      }
-                    }}
-                  >
-                    <span className="small muted">{s === 'lunch' ? t.lunch : t.dinner}</span>
-                    <span className="pick-title">{mine ? '✓' : occupied ? `${occupied.emoji} ${textFor(occupied, prefs.lang).title}` : '+'}</span>
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
-    </Sheet>
-  );
+function authorEmoji(a: string): string {
+  const s = a.toLowerCase();
+  if (/mamie|grand-?m|grandma|granny|nonna|lola/.test(s)) return '👵';
+  if (/papi|grand-?p|grandpa|lolo|papa alain/.test(s)) return '👴';
+  if (/maman|mum|mom|mummy|mama/.test(s)) return '👩‍🍳';
+  if (/papa|dad/.test(s)) return '👨‍🍳';
+  if (/leah/.test(s) && /bap/.test(s)) return '👫';
+  if (/leah|coco|lili|anne/.test(s)) return '👩‍🍳';
+  if (/bap|baptiste|fred|romain|loic|arnaud|doug|leopold|ravin|manu/.test(s)) return '🧑‍🍳';
+  if (/famille|family/.test(s)) return '👨‍👩‍👧‍👦';
+  if (/dr |doctor|ottolenghi|cookbook|jary|michalak|hyman|johnson|saito|staub|mess/.test(s)) return '📖';
+  return '🧑‍🍳';
 }

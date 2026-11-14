@@ -21,7 +21,34 @@ export function mondayOf(d: Date): Date {
   const dow = (x.getDay() + 6) % 7;
   return addDays(x, -dow);
 }
-export const slotKey = (date: string, slot: MealSlot) => `${date}|${slot}`;
+export const slotKey = (date: string, slot: MealSlot, recipeId: number) => `${date}|${slot}|${recipeId}`;
+export const keyDate = (key: string) => key.split('|')[0];
+export const keySlot = (key: string) => (key.split('|')[1] || 'dinner') as MealSlot;
+
+export interface Meal { key: string; id: number; servings: number }
+
+/** All meals planned for a day & slot, oldest first. */
+export function mealsOn(data: SharedData, date: string, slot: MealSlot): Meal[] {
+  const out: (Meal & { t: number })[] = [];
+  for (const [k, e] of Object.entries(data.plan.slots)) {
+    if (!e || e.deleted || keyDate(k) !== date || keySlot(k) !== slot) continue;
+    const r = data.recipes.find((x) => x.id === e.id);
+    if (!r || r.deleted) continue;
+    out.push({ key: k, id: e.id, servings: e.servings, t: e.t });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+/** Next day (from today) with no dinner planned; otherwise the first day with only one. */
+export function nextFreeDay(data: SharedData, from: Date = new Date(), horizon = 14): string {
+  for (const max of [0, 1]) {
+    for (let i = 0; i < horizon; i++) {
+      const d = iso(addDays(from, i));
+      if (mealsOn(data, d, 'dinner').length <= max) return d;
+    }
+  }
+  return iso(from);
+}
 
 export function dayLabel(d: Date, lang: Lang): { short: string; num: string; month: string } {
   const loc = lang === 'fr' ? 'fr-FR' : 'en-GB';
@@ -45,7 +72,7 @@ export function lastPlanned(data: SharedData): Map<number, string> {
   const m = new Map<number, string>();
   for (const [k, e] of Object.entries(data.plan.slots)) {
     if (!e || e.deleted) continue;
-    const date = k.split('|')[0];
+    const date = keyDate(k);
     const cur = m.get(e.id);
     if (!cur || date > cur) m.set(e.id, date);
   }

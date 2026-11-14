@@ -75,7 +75,7 @@ export function fmtMinutes(m: number | null): string {
   if (m < 60) return `${m} min`;
   const h = Math.floor(m / 60);
   const r = m % 60;
-  return r ? `${h} h ${r}` : `${h} h`;
+  return r ? `${h} h ${String(r).padStart(2, '0')}` : `${h} h`;
 }
 
 /* ───────────── recipe text helpers ───────────── */
@@ -152,7 +152,7 @@ const AISLE_RULES: [Aisle, RegExp][] = [
   ['dairy', /\blait\b(?! de coco)|crème|creme|fromage|beurre|yaourt|yogourt|ricotta|parmesan|mozzarella|gruyère|emmental|comté|chèvre|feta|mascarpone|cheddar|burrata|œuf|oeuf|\bmilk\b|cream|cheese|butter|yog(h)?urt|\beggs?\b|halloumi|skyr|tofu/i],
   ['grains', /pâtes?|\bpates?\b|\briz\b|\bpain\b|farine|semoule|couscous|quinoa|boulgour|spaghetti|tagliatelle|penne|nouilles?|soba|udon|tortilla|wrap|pita|chapelure|maïzena|flocons d'avoine|avoine|sarrasin|lentilles?|pois cassés|pasta|\brice\b|bread|flour|noodle|oats?|buckwheat|lentils?|polenta|gnocchi|brioche|baguette|pâte feuilletée|pâte brisée|puff pastry|levure|yeast|baking powder/i],
   ['spices', /\bsel\b|poivre(?! rouge| vert| jaune|on)|épice|cumin|paprika|curcuma|curry|cannelle|muscade|piment|moutarde|vinaigre|sauce soja|tamari|soy sauce|huile|sucre|miel|sirop|ketchup|mayonnaise|harissa|sriracha|sauce|\bsalt\b|black pepper|spice|turmeric|cinnamon|nutmeg|chil(l)?i flakes|mustard|vinegar|\boil\b|sugar|honey|syrup|vanill|origan|oregano|herbes de provence|za'?atar|sumac|garam|ras el hanout|bicarbonate|cacao|chocolat|cocoa|chocolate|graines de sésame|sesame seeds/i],
-  ['produce', /épinard|tomat|oignon|\bail\b|carotte|poivron|courgett|aubergine|pomme(?! de terre)?|pommes? de terre|patate|banane|citron|salade|laitue|roquette|avocat|concombre|champignon|brocoli|chou|navet|poireau|betterave|radis|fenouil|céleri|persil|coriandre|basilic|menthe|ciboulette|aneth|estragon|thym|romarin|laurier|échalote|gingembre|haricots? verts?|petits? pois|potiron|courge|butternut|panais|asperge|fruit|fraise|framboise|myrtille|orange|mangue|ananas|raisin|poire|pêche|abricot|cerise|kiwi|grenade|edamame|pak choi|bok choy|oignons? verts?|cébette|spinach|tomato|onion|garlic|carrot|pepper|zucchini|courgette|eggplant|apple|potato|banana|lemon|lime|lettuce|rocket|avocado|cucumber|mushroom|broccoli|cabbage|kale|leek|beetroot|celery|parsley|coriander|cilantro|basil|mint|chives|dill|thyme|rosemary|bay lea|shallot|ginger|green beans|peas|pumpkin|squash|parsnip|asparagus|berries|spring onion|scallion|bean sprouts|pousses|herbs?/i]
+  ['produce', /capsicum|épinard|tomat|oignon|\bail\b|carotte|poivron|courgett|aubergine|pomme(?! de terre)?|pommes? de terre|patate|banane|citron|salade|laitue|roquette|avocat|concombre|champignon|brocoli|chou|navet|poireau|betterave|radis|fenouil|céleri|persil|coriandre|basilic|menthe|ciboulette|aneth|estragon|thym|romarin|laurier|échalote|gingembre|haricots? verts?|petits? pois|potiron|courge|butternut|panais|asperge|fruit|fraise|framboise|myrtille|orange|mangue|ananas|raisin|poire|pêche|abricot|cerise|kiwi|grenade|edamame|pak choi|bok choy|oignons? verts?|cébette|spinach|tomato|onion|garlic|carrot|pepper|zucchini|courgette|eggplant|apple|potato|banana|lemon|lime|lettuce|rocket|avocado|cucumber|mushroom|broccoli|cabbage|kale|leek|beetroot|celery|parsley|coriander|cilantro|basil|mint|chives|dill|thyme|rosemary|bay lea|shallot|ginger|green beans|peas|pumpkin|squash|parsnip|asparagus|berries|spring onion|scallion|bean sprouts|pousses|herbs?/i]
 ];
 
 export function aisleOf(name: string): Aisle {

@@ -51,6 +51,17 @@ export function SettingsView() {
         </div>
       </section>
 
+      <section className="card-section">
+        <h2>{t.theme}</h2>
+        <div className="seg">
+          {([['auto', '🌓', t.themeAuto], ['light', '☀️', t.themeLight], ['dark', '🌙', t.themeDark]] as const).map(([id, e, l]) => (
+            <button key={id} className={prefs.theme === id ? 'on' : ''} onClick={() => setPrefs({ theme: id })}>
+              {e} {l}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="card-section row-between">
         <h2>{t.household}</h2>
         <Stepper value={prefs.householdServings} onChange={(n) => setPrefs({ householdServings: n })} />

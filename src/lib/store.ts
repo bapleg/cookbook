@@ -51,6 +51,7 @@ let state: State = {
     showLunch: false,
     weeks: 1,
     dietFilters: [],
+    theme: 'auto',
     ...read<Partial<LocalPrefs>>(K_PREFS, {})
   },
   sync: RELAY_URL ? 'idle' : 'local',

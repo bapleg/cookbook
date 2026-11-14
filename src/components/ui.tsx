@@ -76,12 +76,13 @@ export function Sheet({ open, onClose, title, children, footer }: { open: boolea
   );
 }
 
-let toastSet: ((m: string | null) => void) | null = null;
-export function toast(msg: string) {
-  toastSet?.(msg);
+interface ToastMsg { text: string; action?: { label: string; onClick: () => void } }
+let toastSet: ((m: ToastMsg | null) => void) | null = null;
+export function toast(text: string, action?: ToastMsg['action']) {
+  toastSet?.({ text, action });
 }
 export function Toaster() {
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<ToastMsg | null>(null);
   useEffect(() => {
     toastSet = setMsg;
     return () => {
@@ -90,10 +91,19 @@ export function Toaster() {
   }, []);
   useEffect(() => {
     if (!msg) return;
-    const t = window.setTimeout(() => setMsg(null), 2600);
+    const t = window.setTimeout(() => setMsg(null), msg.action ? 5000 : 2600);
     return () => window.clearTimeout(t);
   }, [msg]);
-  return msg ? <div className="toast" role="status">{msg}</div> : null;
+  return msg ? (
+    <div className="toast" role="status">
+      <span>{msg.text}</span>
+      {msg.action && (
+        <button className="toast-action" onClick={() => { msg.action!.onClick(); setMsg(null); }}>
+          {msg.action.label}
+        </button>
+      )}
+    </div>
+  ) : null;
 }
 
 export function Stars({ value, onChange, size = 18 }: { value: number; onChange?: (n: number) => void; size?: number }) {
@@ -131,13 +141,61 @@ export function Stepper({ value, onChange, min = 1, max = 30 }: { value: number;
   );
 }
 
-export function Photo({ src, emoji, className }: { src?: string; emoji: string; className?: string }) {
+export function Photo({ src, emoji, className, cat }: { src?: string; emoji: string; className?: string; cat?: string }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed)
     return (
-      <div className={(className || '') + ' photo-fallback'} aria-hidden="true">
+      <div className={(className || '') + ' photo-fallback cat-' + (cat || 'plats')} aria-hidden="true">
         <span>{emoji}</span>
       </div>
     );
   return <img className={className} src={src} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+}
+
+/** Turns free-form tags into a few friendly, translated, colour-coded pills. */
+const TAG_MAP: [RegExp, string, string, string][] = [
+  [/^(vege|végé|vegetari|vegatarian|veggie|vegan)/i, 'veg', '🌱', 'green'],
+  [/^healthy|^santé|^fresh/i, 'healthy', '💚', 'mint'],
+  [/^(rapide|quick|easy|simple|facile|no-oven)/i, 'quick', '⚡', 'yellow'],
+  [/^(famil|family|homy|hearthy)/i, 'family', '🏡', 'orange'],
+  [/^(kids|fun|enfant)/i, 'kids', '🧒', 'pink'],
+  [/^(sans gluten|gluten[- ]free)/i, 'gf', '🌾', 'sand'],
+  [/^(sans lait|sans lactose|dairy[- ]free)/i, 'df', '🥛', 'blue'],
+  [/^(sans œufs|sans oeufs|egg[- ]free)/i, 'ef', '🥚', 'sand'],
+  [/^longevity|^longévité/i, 'longevity', '⏳', 'purple'],
+  [/^(comfort|gourmand|mijoté|réconfort)/i, 'comfort', '🤗', 'orange']
+];
+
+export function TagPills({ tags, limit }: { tags: string[]; limit?: number }) {
+  const t = useT();
+  const seen = new Set<string>();
+  const pills: { key: string; label: string; emoji: string; color: string }[] = [];
+  for (const raw of tags || []) {
+    const tag = raw.trim();
+    if (!tag) continue;
+    const hit = TAG_MAP.find(([re]) => re.test(tag));
+    if (hit) {
+      if (seen.has(hit[1])) continue;
+      seen.add(hit[1]);
+      pills.push({ key: hit[1], label: t[`tag_${hit[1]}` as keyof typeof t] as string, emoji: hit[2], color: hit[3] });
+    } else {
+      const k = tag.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      pills.push({ key: k, label: tag.charAt(0).toUpperCase() + tag.slice(1), emoji: '🏷️', color: 'grey' });
+    }
+  }
+  // known tags first
+  pills.sort((a, b) => Number(a.color === 'grey') - Number(b.color === 'grey'));
+  const shown = limit ? pills.filter((p) => p.color !== 'grey').slice(0, limit) : pills;
+  if (!shown.length) return null;
+  return (
+    <div className={'tag-pills' + (limit ? ' compact' : '')}>
+      {shown.map((p) => (
+        <span key={p.key} className={'tag-pill tc-' + p.color}>
+          <span aria-hidden="true">{p.emoji}</span> {p.label}
+        </span>
+      ))}
+    </div>
+  );
 }

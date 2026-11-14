@@ -42,7 +42,7 @@ export interface PlanEntry {
   t: number;
   deleted?: boolean;
 }
-/** key = `${YYYY-MM-DD}|${slot}` */
+/** key = `${YYYY-MM-DD}|${slot}|${recipeId}` (older keys `${date}|${slot}` are still read) — several meals per slot */
 export interface Plan {
   slots: Record<string, PlanEntry>;
 }
@@ -70,6 +70,7 @@ export interface LocalPrefs {
   showLunch: boolean;
   weeks: 1 | 2;
   dietFilters: DietFilter[];
+  theme: 'auto' | 'light' | 'dark';
 }
 
 export type DietFilter = 'veg' | 'gf' | 'df' | 'ef' | 'quick';

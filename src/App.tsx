@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useRoute, go, type Route } from './lib/router';
 import { useStore } from './lib/store';
 import { Icon, SyncDot, Toaster, useT } from './components/ui';
+import { DayPickerHost } from './components/menu';
 import { RecipesView } from './views/RecipesView';
 import { RecipeView } from './views/RecipeView';
 import { EditorView } from './views/EditorView';
@@ -21,11 +22,19 @@ export default function App() {
   const route = useRoute();
   const t = useT();
   const lang = useStore((s) => s.prefs.lang);
+  const theme = useStore((s) => s.prefs.theme);
   const tab = tabOf(route);
 
   useEffect(() => {
     document.documentElement.lang = lang === 'vi' ? 'ceb' : lang;
   }, [lang]);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'auto') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', theme);
+    const dark = theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#17130f' : '#fff8ef'));
+  }, [theme]);
   useEffect(() => {
     if (route.name !== 'recipe') window.scrollTo(0, 0);
   }, [route.name]);
@@ -41,7 +50,7 @@ export default function App() {
     <div className="app">
       <nav className="topnav" aria-label="Main">
         <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); go(''); }}>
-          <span className="brand-mark">🍳</span> {t.appName}
+          <span className="brand-mark">🍳</span> Howatson - Le Gal
         </a>
         <div className="topnav-links">
           {nav.map((n) => (
@@ -78,6 +87,7 @@ export default function App() {
           <span>{t.settings}</span>
         </a>
       </nav>
+      <DayPickerHost />
       <Toaster />
     </div>
   );
