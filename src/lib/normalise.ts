@@ -167,6 +167,8 @@ const CANON: Record<Lang, [RegExp, string][]> = {
     [/\bpommes? de terre à chair ferme\b/gi, 'pommes de terre'],
     [/\bpois chiches? cuits?\b/gi, 'pois chiches'],
     [/\bc(?:uillères?|\.)\s*à\s*thé\b/gi, 'c. à café'],
+    [/\b(?:plain|all[- ]purpose) flour\b/gi, 'farine'],
+    [/\bhuile de canola\b/gi, 'huile de colza'],
     [/\bpâte de tomates?\b/gi, 'concentré de tomate']
   ],
   en: [
