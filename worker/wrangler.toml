@@ -1,0 +1,16 @@
+name = "cookbook-relay"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+# The private gist that stores recipes.json, ratings.json, plan.json, shopping.json
+GIST_ID = "ee9575a401dcca72d8beb8b1145e32ff"
+# Comma separated; "*" = any origin. The site is public anyway; tighten if a password is added.
+ALLOWED_ORIGINS = "*"
+
+[ai]
+binding = "AI"
+
+[observability]
+enabled = true
