@@ -146,7 +146,8 @@ export const AISLE_EMOJI: Record<Aisle, string> = {
 
 const AISLE_RULES: [Aisle, RegExp][] = [
   ['frozen', /surgel|frozen|congel/i],
-  ['tins', /conserve|en boîte|\bboîte\b|\bcan(ned)?\b|\btin(ned)?\b|bocal|passata|coulis|concentré de tomate|tomato paste|lait de coco|coconut milk|pois chiches?|chickpea|haricots? (rouges?|blancs?|noirs?)|kidney|black beans|cannellini|maïs doux|sweetcorn|olives?|câpres?|capers|pesto|tahini|cornichon|pickles?|bouillon|stock|\bthon\b|tuna/i],
+  ['spices', /cayenne|huile|\boil\b|vinaigre|vinegar|sauce soja|soy sauce|tamari|paprika|cumin|curcuma|turmeric|cannelle|cinnamon|muscade|nutmeg|sumac|za'?atar|garam|curry powder|chil(l)?i (?:flakes|powder)|piment (?:d'espelette|en poudre)|\bsel\b|\bsalt\b|black pepper|poivre noir|stock cube|cube de bouillon|bouillon cube|honey|miel|\bsugar\b|\bsucre\b|sirop|syrup/i],
+  ['tins', /crushed tomato|chopped tomato|tomates? concassées|tomates? pelées|tinned|canned|conserve|en boîte|\bboîte\b|\bcan(ned)?\b|\btin(ned)?\b|bocal|passata|coulis|concentré de tomate|tomato paste|lait de coco|coconut milk|pois chiches?|chickpea|haricots? (rouges?|blancs?|noirs?)|kidney|black beans|cannellini|maïs doux|sweetcorn|olives? (?:noires|vertes|kalamata)|black olives|green olives|câpres?|capers|pesto|tahini|cornichon|pickles?|bouillon|stock|\bthon\b|tuna/i],
   ['meat', /poulet|blanc de volaille|volaille|bœuf|boeuf|\bporc\b|veau|agneau|canard|saumon|\bthon\b|poisson|cabillaud|crevette|viande|haché|jambon|lardon|bacon|merguez|saucisse|chorizo|dinde|lapin|chicken|beef|pork|lamb|salmon|\bfish\b|\bcod\b|shrimp|prawn|\bmeat\b|mince|\bham\b|turkey|rabbit|sausage|manok|baboy|isda|anchois|anchov/i],
   ['dairy', /\blait\b(?! de coco)|crème|creme|fromage|beurre|yaourt|yogourt|ricotta|parmesan|mozzarella|gruyère|emmental|comté|chèvre|feta|mascarpone|cheddar|burrata|œuf|oeuf|\bmilk\b|cream|cheese|butter|yog(h)?urt|\beggs?\b|halloumi|skyr|tofu/i],
   ['grains', /pâtes?|\bpates?\b|\briz\b|\bpain\b|farine|semoule|couscous|quinoa|boulgour|spaghetti|tagliatelle|penne|nouilles?|soba|udon|tortilla|wrap|pita|chapelure|maïzena|flocons d'avoine|avoine|sarrasin|lentilles?|pois cassés|pasta|\brice\b|bread|flour|noodle|oats?|buckwheat|lentils?|polenta|gnocchi|brioche|baguette|pâte feuilletée|pâte brisée|puff pastry|levure|yeast|baking powder/i],
@@ -160,7 +161,7 @@ export function aisleOf(name: string): Aisle {
 }
 
 /** Staples most kitchens already have; shown in a separate "pantry" section unless the family opts in. */
-const PANTRY_RE = /^(sel|gros sel|fleur de sel|poivre|poivre noir|huile|huile d'olive|huile de tournesol|huile neutre|huile végétale|sucre|sucre en poudre|farine|eau|eau chaude|eau froide|salt|pepper|black pepper|salt and pepper|sel et poivre|sel, poivre|olive oil|oil|vegetable oil|sugar|flour|water|vinaigre|vinegar|moutarde|mustard|sauce soja|soy sauce|maïzena|cornstarch|levure chimique|baking powder|bicarbonate|baking soda|paprika|cumin|cannelle|cinnamon|curry|herbes de provence|thym séché|laurier|bay leaf|bay leaves|origan|oregano|piment|chili flakes|ketchup|miel|honey)$/i;
+const PANTRY_RE = /^(sea salt|sea salt and pepper|salt & pepper|sel & poivre|sel et poivre du moulin|sel|gros sel|fleur de sel|poivre|poivre noir|huile|huile d'olive|huile de tournesol|huile neutre|huile végétale|sucre|sucre en poudre|farine|eau|eau chaude|eau froide|salt|pepper|black pepper|salt and pepper|sel et poivre|sel, poivre|olive oil|oil|vegetable oil|sugar|flour|water|vinaigre|vinegar|moutarde|mustard|sauce soja|soy sauce|maïzena|cornstarch|levure chimique|baking powder|bicarbonate|baking soda|paprika|cumin|cannelle|cinnamon|curry|herbes de provence|thym séché|laurier|bay leaf|bay leaves|origan|oregano|piment|chili flakes|ketchup|miel|honey)$/i;
 
 export function isStaple(name: string): boolean {
   return PANTRY_RE.test(name.trim());
@@ -188,7 +189,7 @@ const UNIT_RE = new RegExp(
   'i'
 );
 
-const PREP_WORDS = /\b(battue?s?|fondue?s?|hachée?s?|émincée?s?|râpée?s?|coupée?s?|tranchée?s?|pressée?s?|pilée?s?|ciselée?s?|pelée?s?|épluchée?s?|égouttée?s?|rincée?s?|concassée?s?|dénoyautée?s?|émiettée?s?|surgelée?s?|fraîches?|frais|secs?|sèches?|séchée?s?|moulue?s?|entière?s?|entiers?|tièdes?|mou|ramollie?|cuite?s?|cuits?|crue?s?|crus?|finement|grossièrement|en dés|en morceaux|en rondelles|en lamelles|en cubes|en quartiers|bien mûrs?|mûre?s?|bio|chopped|minced|diced|sliced|grated|crushed|fresh|dried|ground|whole|melted|beaten|softened|peeled|drained|rinsed|finely|roughly|thinly|large|small|medium|big|petite?s?|grande?s?|gros|grosses?|environ|about|approx\.?)\b/gi;
+const PREP_WORDS = /\b(battue?s?|fondue?s?|hachée?s?|émincée?s?|râpée?s?|coupée?s?|tranchée?s?|pressée?s?|pilée?s?|ciselée?s?|pelée?s?|épluchée?s?|égouttée?s?|rincée?s?|concassée?s?|dénoyautée?s?|émiettée?s?|surgelée?s?|fraîches?|frais|secs?|sèches?|séchée?s?|moulue?s?|entière?s?|entiers?|tièdes?|mou|ramollie?|cuite?s?|cuits?|crue?s?|crus?|finement|grossièrement|en dés|en morceaux|en rondelles|en lamelles|en cubes|en quartiers|bien mûrs?|mûre?s?|bio|crushed|extra[- ]virgin|vierge extra|juice of|jus de|zest of|chopped|minced|diced|sliced|grated|crushed|fresh|dried|ground|whole|melted|beaten|softened|peeled|drained|rinsed|finely|roughly|thinly|large|small|medium|big|petite?s?|grande?s?|gros|grosses?|environ|about|approx\.?)\b/gi;
 
 export interface ParsedIng { qty: number | null; unit: string; name: string; raw: string }
 
@@ -213,9 +214,16 @@ export function parseIngredient(line: string): ParsedIng {
   return { qty, unit, name: s.trim(), raw };
 }
 
+export function cleanLabel(name: string): string {
+  let t = name.replace(/\([^)]*\)/g, ' ').replace(/^(optional|facultatif|optionnel)\s*:?\s*/i, '');
+  t = t.split(/[,;]| - | – /)[0];
+  t = t.replace(PREP_WORDS, ' ').replace(/^\s*(of |de |d'|d’)/i, '').replace(/\s+/g, ' ').trim();
+  return t || name.trim();
+}
+
 /** Canonical key used to merge the same ingredient across recipes. */
 export function ingredientKey(name: string): string {
-  let t = name.toLowerCase();
+  let t = name.toLowerCase().replace(/^(optional|facultatif|optionnel)\s*:?\s*/i, '');
   t = t.replace(/\([^)]*\)/g, ' ').split(/[,;:]| - | – |\bou\b|\bor\b|\bpour\b|\bfor\b/)[0];
   t = t.replace(/\b\d+([.,]\d+)?\s?(kg|g|ml|cl|l|oz|lbs?)\b/g, ' ');
   t = t.replace(PREP_WORDS, ' ');
@@ -241,11 +249,14 @@ function toBase(qty: number, unit: string): { qty: number; unit: string } {
   }
 }
 
-function prettyQty(qty: number, unit: string): string {
+function prettyQty(qty: number, unit: string, lang: Lang): string {
+  const en = lang !== 'fr';
   if (unit === 'g' && qty >= 1000) return `${formatNum(qty / 1000)} kg`;
   if (unit === 'ml' && qty >= 1000) return `${formatNum(qty / 1000)} l`;
   if (unit === 'ml' && qty >= 100) return `${formatNum(qty / 10)} cl`;
-  const u = unit === 'cs' ? 'c. à s.' : unit === 'cc' ? 'c. à c.' : unit;
+  const names: Record<string, [string, string]> = { cs: ['c. à s.', 'tbsp'], cc: ['c. à c.', 'tsp'], 'boîte': ['boîte', 'tin'], botte: ['botte', 'bunch'], gousse: ['gousse', 'clove'], tranche: ['tranche', 'slice'], filet: ['filet', 'fillet'], feuille: ['feuille', 'leaf'], branche: ['branche', 'sprig'], sachet: ['sachet', 'sachet'], paquet: ['paquet', 'pack'], 'pincée': ['pincée', 'pinch'], cup: ['tasse', 'cup'] };
+  let u = names[unit] ? names[unit][en ? 1 : 0] : unit;
+  if (qty > 1 && names[unit]) u = en ? (u === 'leaf' ? 'leaves' : u === 'pinch' ? 'pinches' : /tbsp|tsp/.test(u) ? u : u + 's') : u.includes('.') ? u : u + 's';
   return `${formatNum(qty)}${u ? (u === 'g' || u === 'ml' ? ' ' : ' ') + u : ''}`;
 }
 
@@ -262,7 +273,7 @@ export interface ShopLine {
 export interface ShopSource { recipe: Recipe; ratio: number; title: string }
 
 export function buildShoppingList(sources: ShopSource[], lang: Lang): ShopLine[] {
-  const map = new Map<string, { label: string; qtys: Map<string, number>; loose: number; recipes: Set<string>; details: string[]; noQty: boolean }>();
+  const map = new Map<string, { label: string; raw: string; qtys: Map<string, number>; loose: number; recipes: Set<string>; details: string[]; noQty: boolean }>();
   for (const { recipe, ratio, title } of sources) {
     const txt = textFor(recipe, lang);
     for (const line of txt.ingredients || []) {
@@ -272,12 +283,12 @@ export function buildShoppingList(sources: ShopSource[], lang: Lang): ShopLine[]
       if (!key) continue;
       let e = map.get(key);
       if (!e) {
-        const labelBase = p.name.replace(/\([^)]*\)/g, '').split(/[,;]/)[0].trim();
-        e = { label: labelBase.charAt(0).toUpperCase() + labelBase.slice(1), qtys: new Map(), loose: 0, recipes: new Set(), details: [], noQty: false };
+        const labelBase = cleanLabel(p.name);
+        e = { label: labelBase.charAt(0).toUpperCase() + labelBase.slice(1), raw: p.name.toLowerCase() + ' ' + p.unit, qtys: new Map(), loose: 0, recipes: new Set(), details: [], noQty: false };
         map.set(key, e);
       }
       e.recipes.add(title);
-      e.details.push(cleanLine(line));
+      e.details.push(`${cleanLine(line)} — ${title}`);
       if (p.qty == null) e.noQty = true;
       else {
         const b = toBase(p.qty, p.unit);
@@ -290,12 +301,12 @@ export function buildShoppingList(sources: ShopSource[], lang: Lang): ShopLine[]
   for (const [key, e] of map) {
     const amounts: string[] = [];
     if (e.loose) amounts.push(formatNum(e.loose));
-    for (const [u, q] of e.qtys) amounts.push(prettyQty(q, u));
+    for (const [u, q] of e.qtys) amounts.push(prettyQty(q, u, lang));
     out.push({
       key,
       label: e.label,
       amounts,
-      aisle: aisleOf(key + ' ' + e.label.toLowerCase()),
+      aisle: /boîte/.test(e.raw) ? 'tins' : aisleOf(e.raw + ' ' + key),
       staple: isStaple(key) || isStaple(e.label),
       recipes: [...e.recipes],
       details: e.details

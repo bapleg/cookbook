@@ -12,7 +12,7 @@ const US_TO_UK: [RegExp, string][] = [
   [/\b(?:powdered|confectioners'?) sugar\b/gi, 'icing sugar'],
   [/\bsuperfine sugar\b/gi, 'caster sugar'],
   [/\bgranulated sugar\b/gi, 'caster sugar'],
-  [/\b(?:dark |light )?brown sugar\b/gi, 'soft brown sugar'],
+  [/\b(?<!soft )(?:dark |light )?brown sugar\b/gi, 'soft brown sugar'],
   [/\bcornstarch\b/gi, 'cornflour'],
   [/\bbaking soda\b/gi, 'bicarbonate of soda'],
   [/\bheavy (?:whipping )?cream\b/gi, 'double cream'],
@@ -31,10 +31,10 @@ const US_TO_UK: [RegExp, string][] = [
   [/\brutabagas?\b/gi, 'swede'],
   [/\b(red|green|yellow|orange) bell peppers?\b/gi, '$1 pepper'],
   [/\bbell peppers?\b/gi, 'pepper'],
-  [/\bground (beef|pork|lamb|turkey|chicken)\b/gi, '$1 mince'],
+  [/\bground ((?:beef|pork|lamb|turkey|chicken)(?: or (?:beef|pork|lamb|turkey|chicken))?)\b/gi, '$1 mince'],
   [/\bshrimps?\b/gi, 'prawns'],
   [/\bcanola oil\b/gi, 'rapeseed oil'],
-  [/\bkosher salt\b/gi, 'coarse salt'],
+  [/\b(?:coarse )?kosher salt\b/gi, 'coarse salt'],
   [/\bcookies\b/gi, 'biscuits'],
   [/\bcandy\b/gi, 'sweets'],
   [/\bplastic wrap\b/gi, 'cling film'],
@@ -73,7 +73,13 @@ const CUP_GRAMS: [RegExp, number][] = [
   [/chocolate chips|pépites/i, 170],
   [/spinach|épinard|kale|rocket|roquette|salad|herbs|parsley|coriander|basil|persil|coriandre|basilic/i, 30],
   [/peas|petits pois|corn|maïs|beans|haricots/i, 150],
-  [/berries|blueberr|raspberr|myrtille|framboise/i, 150]
+  [/berries|blueberr|raspberr|myrtille|framboise/i, 150],
+  [/prunes?|pruneaux|dates|dattes|raisins|sultanas|apricots|abricots/i, 150],
+  [/olives?|capers|câpres/i, 135],
+  [/onions?|oignons?|shallots?|échalotes?/i, 160],
+  [/peppers?|poivrons?|piments?|courgettes?|zucchini|carrots?|carottes?|celery|céleri|tomato(?!.*(?:sauce|paste|purée))|tomates?/i, 150],
+  [/mushrooms?|champignons?/i, 70],
+  [/coconut|coco râpé|desiccated/i, 80]
 ];
 
 function cupsTo(n: number, rest: string): string {
@@ -109,10 +115,11 @@ export function toMetric(line: string): string {
   let s = line;
   // "1 ½ cups" -> "1.5 cups"
   s = s.replace(/(\d+)\s*([½¼¾⅓⅔])/g, (_, a, f) => String(Number(a) + toNumber(f)));
+  // ranges like "1-1.5 cups": keep the upper bound
+  s = s.replace(/(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)(?=\s*cups?\b)/gi, (_, _a, b) => b);
   // cups
-  s = s.replace(new RegExp(NUM + '\\s*(?:cups?|c\\.)\\b(.*)', 'i'), (_, n, rest) => {
-    const conv = cupsTo(toNumber(n), rest);
-    return conv ? `${conv}${rest}` : _;
+  s = s.replace(new RegExp(NUM + '\\s*cups?\\b(\\s+(?:of\\s+)?)?([^,.;:]{0,40})', 'gi'), (_, n, sp, rest) => {
+    return `${cupsTo(toNumber(n), rest || '')}${sp || ' '}${rest || ''}`.replace(/\s+$/, '');
   });
   // fl oz before oz
   s = s.replace(new RegExp(NUM + '\\s*(?:fl\\.?\\s*oz|fluid ounces?)\\b', 'gi'), (_, n) => `${formatNum(roundNice(toNumber(n) * 30))} ml`);
@@ -158,7 +165,9 @@ const CANON: Record<Lang, [RegExp, string][]> = {
     [/\bfilets? de poulet\b/gi, 'blancs de poulet'],
     [/\bescalopes? de poulet\b/gi, 'blancs de poulet'],
     [/\bpommes? de terre à chair ferme\b/gi, 'pommes de terre'],
-    [/\bpois chiches? cuits?\b/gi, 'pois chiches']
+    [/\bpois chiches? cuits?\b/gi, 'pois chiches'],
+    [/\bc(?:uillères?|\.)\s*à\s*thé\b/gi, 'c. à café'],
+    [/\bpâte de tomates?\b/gi, 'concentré de tomate']
   ],
   en: [
     [/\bextra[- ]virgin olive oil\b/gi, 'olive oil'],
@@ -166,7 +175,6 @@ const CANON: Record<Lang, [RegExp, string][]> = {
     [/\bflat[- ]leaf parsley\b/gi, 'parsley'],
     [/\bchicken breasts?(?: fillets?)?\b/gi, 'chicken breasts'],
     [/\bsoy sauce\b/gi, 'soy sauce'],
-    [/\bgarlic cloves?\b/gi, 'cloves garlic'],
     [/\bcherry tomatoes\b/gi, 'cherry tomatoes']
   ],
   vi: []

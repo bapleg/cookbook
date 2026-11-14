@@ -27,7 +27,7 @@ function write(key: string, v: unknown) {
   }
 }
 
-const SEED: SharedData = { ...emptyData(), recipes: (seedJson as { recipes: Recipe[] }).recipes, ratings: (seedJson as { ratings: SharedData['ratings'] }).ratings };
+const SEED: SharedData = { ...emptyData(), ...(seedJson as unknown as Pick<SharedData, "recipes" | "ratings">) };
 
 function detectLang(): Lang {
   const l = (navigator.language || 'fr').slice(0, 2);
