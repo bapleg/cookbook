@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { nutritionOf } from '../lib/nutrition';
-import { scoreRecipe, loadProfiles, KIDS_PROFILE, LEVEL_EMOJI, type HealthProfile } from '../lib/health';
+import { scoreRecipe, allProfiles, KIDS_PROFILE, LEVEL_EMOJI, type HealthProfile } from '../lib/health';
 import { useT } from './ui';
 import type { Recipe, Lang } from '../lib/types';
 
@@ -89,7 +89,7 @@ export function NutritionPanel({ r, ratio, lang }: { r: Recipe; ratio: number; l
 
 function HealthScores({ r, lang }: { r: Recipe; lang: Lang }) {
   const t = useT();
-  const profiles = useMemo<HealthProfile[]>(() => [...loadProfiles(), { ...KIDS_PROFILE, name: t.kidsScore }], [t.kidsScore]);
+  const profiles = useMemo<HealthProfile[]>(() => [...allProfiles(), { ...KIDS_PROFILE, name: t.kidsScore }], [t.kidsScore]);
   const [open, setOpen] = useState<string | null>(null);
   const scores = profiles.map((p) => ({ p, s: scoreRecipe(r, p, lang) })).filter((x) => x.s);
   if (!scores.length) return null;

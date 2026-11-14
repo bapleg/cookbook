@@ -51,6 +51,14 @@ export function importProfileFromHash(encoded: string): HealthProfile | null {
   }
 }
 
+import { FAMILY_PROFILES } from './familyProfiles';
+
+/** Built-in family profiles + any extra ones activated on this device. */
+export function allProfiles(): HealthProfile[] {
+  const local = loadProfiles();
+  return [...FAMILY_PROFILES.filter((p) => !local.some((l) => l.id === p.id)), ...local];
+}
+
 export const KIDS_PROFILE: HealthProfile = {
   id: 'kids',
   name: 'Enfants',
@@ -89,8 +97,8 @@ export function scoreRecipe(r: Recipe, p: HealthProfile, lang: Lang): Score | nu
 
   if (g.lowSatFat) {
     if (s.satFat <= 4) add(10, true, tx(lang, `Peu de graisses saturées (${s.satFat} g)`, `Low saturated fat (${s.satFat} g)`));
-    else if (s.satFat > 10) add(-20, false, tx(lang, `Beaucoup de graisses saturées (${s.satFat} g)`, `High saturated fat (${s.satFat} g)`));
-    else if (s.satFat > 7) add(-10, false, tx(lang, `Graisses saturées assez élevées (${s.satFat} g)`, `Fairly high saturated fat (${s.satFat} g)`));
+    else if (s.satFat > 10) add(-12, false, tx(lang, `Beaucoup de graisses saturées (${s.satFat} g)`, `High saturated fat (${s.satFat} g)`));
+    else if (s.satFat > 7) add(-6, false, tx(lang, `Graisses saturées assez élevées (${s.satFat} g)`, `Fairly high saturated fat (${s.satFat} g)`));
   }
   if (g.highFibre) {
     if (s.fibre >= 8) add(15, true, tx(lang, `Riche en fibres (${s.fibre} g)`, `High in fibre (${s.fibre} g)`));
@@ -139,12 +147,17 @@ export function scoreRecipe(r: Recipe, p: HealthProfile, lang: Lang): Score | nu
       }
     });
   const avoid = hits(p.avoid);
-  avoid.slice(0, 3).forEach((rule) => add(-20, false, tx(lang, `Contient : ${rule.label}`, `Contains: ${rule.label}`)));
-  if (avoid.length > 3) add(-10, false, '…');
-  hits(p.limit).slice(0, 3).forEach((rule) => add(-5, false, tx(lang, `À limiter : ${rule.label}`, `Limit: ${rule.label}`)));
+  // gentle: the first food to avoid weighs most, the total is capped
+  let avoidPts = 0;
+  avoid.forEach((rule, i) => {
+    const pts = Math.max(-30 - avoidPts, i === 0 ? -12 : -6);
+    avoidPts += pts;
+    add(pts, false, tx(lang, `Contient : ${rule.label}`, `Contains: ${rule.label}`));
+  });
+  hits(p.limit).slice(0, 3).forEach((rule) => add(-3, false, tx(lang, `À limiter : ${rule.label}`, `Limit: ${rule.label}`)));
   if (p.avoid?.length && !avoid.length) add(8, true, tx(lang, 'Rien à éviter dans les ingrédients', 'Nothing to avoid in the ingredients'));
 
-  v = Math.max(0, Math.min(100, Math.round(v)));
+  v = Math.max(10, Math.min(100, Math.round(v)));
   const level = v >= 75 ? 'great' : v >= 55 ? 'good' : v >= 35 ? 'fair' : 'poor';
   return { value: v, level, reasons };
 }

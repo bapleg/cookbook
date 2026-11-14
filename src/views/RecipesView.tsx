@@ -171,8 +171,8 @@ function Welcome() {
         <span>🥕</span><span>🍋</span><span>🧁</span><span>🍅</span><span>🥖</span><span>🍓</span>
       </div>
       <p className="welcome-hi">{hi} 👋</p>
-      <p className="welcome-kicker">{t.welcomeKicker}</p>
-      <h1 className="welcome-title">{t.welcomeTitle}</h1>
+      <h1 className="welcome-title">{t.welcomeKicker}</h1>
+      <p className="welcome-name">{t.welcomeTitle}</p>
       <p className="welcome-script">{t.welcomeScript}</p>
       <p className="welcome-q">{t.welcomeQ}</p>
       <div className="welcome-tonight">
