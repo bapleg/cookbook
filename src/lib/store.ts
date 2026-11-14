@@ -168,8 +168,22 @@ async function request(method: 'GET' | 'POST', body?: unknown): Promise<Partial<
   }
 }
 
+let seedChecked = false;
 function receive(server: Partial<SharedData>) {
   write(K_DATA, server);
+  if (!seedChecked) {
+    seedChecked = true;
+    // Built-in recipes that the shared store doesn't have yet (or has an older version of) are uploaded once,
+    // so every device and the old site see the same, cleaned-up versions.
+    const remote = new Map((server.recipes || []).map((r) => [r.id, r.updatedAt || 0]));
+    const missing = SEED.recipes.filter((r) => !remote.has(r.id) || (r.updatedAt || 0) > (remote.get(r.id) || 0));
+    if (missing.length) {
+      pending = mergeDeltas(pending, { recipes: missing });
+      write(K_PENDING, pending);
+      window.clearTimeout(flushTimer);
+      flushTimer = window.setTimeout(flush, 1500);
+    }
+  }
   // server state on top of the seed, then our not-yet-sent changes on top of that
   set({ data: applyDelta(withSeed(SEED, server), pending), lastSync: now() });
 }
