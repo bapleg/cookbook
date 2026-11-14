@@ -155,8 +155,6 @@ function Welcome() {
   const t = useT();
   const data = useStore((s) => s.data);
   const lang = useStore((s) => s.prefs.lang);
-  const h = new Date().getHours();
-  const hi = h < 12 ? t.hiMorning : h < 18 ? t.hiAfternoon : t.hiEvening;
   const today = iso(new Date());
   const tonight = mealsOn(data, today, 'dinner')
     .map((m) => data.recipes.find((r) => r.id === m.id))
@@ -170,11 +168,9 @@ function Welcome() {
       <div className="welcome-deco" aria-hidden="true">
         <span>🥕</span><span>🍋</span><span>🧁</span><span>🍅</span><span>🥖</span><span>🍓</span>
       </div>
-      <p className="welcome-hi">{hi} 👋</p>
       <h1 className="welcome-title">{t.welcomeKicker}</h1>
       <p className="welcome-name">{t.welcomeTitle}</p>
       <p className="welcome-script">{t.welcomeScript}</p>
-      <p className="welcome-q">{t.welcomeQ}</p>
       <div className="welcome-tonight">
         {tonight.length ? (
           tonight.map((r) => (
@@ -197,7 +193,10 @@ function Welcome() {
           </button>
         )}
       </div>
-      <p className="welcome-stats">📖 {t.recipesCount(total)} · 📅 {t.plannedThisWeek(weekCount)}</p>
+      <p className="welcome-stats">
+        📖 {t.recipesCount(total)} ·{' '}
+        <a href="#/plan" onClick={(e) => { e.preventDefault(); go('plan'); }}>📅 {t.plannedThisWeek(weekCount)} ›</a>
+      </p>
     </section>
   );
 }

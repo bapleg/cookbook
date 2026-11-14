@@ -82,6 +82,9 @@ export function RecipeView({ id }: { id: number }) {
     <div className="page recipe-page">
       <div className="hero">
         <Photo src={r.photo} emoji={r.emoji} className="hero-img" cat={r.category} />
+        <button className={'hero-fav' + (fav ? ' on' : '')} onClick={() => toggleFav(r.id)} aria-label={t.favourites} aria-pressed={fav}>
+          <Icon name="heart" size={20} fill={fav} />
+        </button>
         <div className="hero-bar">
           <button className="icon-btn glass" onClick={() => (history.length > 1 ? history.back() : go(''))} aria-label={t.back}>
             <Icon name="back" />
@@ -138,9 +141,7 @@ export function RecipeView({ id }: { id: number }) {
                 <Icon name="calendar" size={18} /> {t.addToMenu}
               </button>
             )}
-            <button className={'btn' + (fav ? ' fav-on' : '')} onClick={() => toggleFav(r.id)}>
-              <Icon name="heart" size={18} fill={fav} /> {t.favourites}
-            </button>
+
             {steps.length > 0 && (
               <button className="btn cook-btn" onClick={() => setCooking(true)}>
                 <Icon name="clock" size={18} /> {t.cookingMode}

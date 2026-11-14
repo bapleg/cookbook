@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'photos/*'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'photos/*'],
       manifest: {
         name: 'Family Cookbook',
         short_name: 'Cookbook',
