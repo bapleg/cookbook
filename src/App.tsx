@@ -3,6 +3,8 @@ import { useRoute, go, type Route } from './lib/router';
 import { useStore } from './lib/store';
 import { Icon, SyncDot, Toaster, useT } from './components/ui';
 import { DayPickerHost } from './components/menu';
+import { importProfileFromHash } from './lib/health';
+import { toast } from './components/ui';
 import { RecipesView } from './views/RecipesView';
 import { RecipeView } from './views/RecipeView';
 import { EditorView } from './views/EditorView';
@@ -36,6 +38,13 @@ export default function App() {
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#17130f' : '#fff8ef'));
   }, [theme]);
   useEffect(() => {
+    if (route.name !== 'profile') return;
+    const p = importProfileFromHash(route.data);
+    go('settings', true);
+    if (p) window.setTimeout(() => toast(t.profileImported(p.name)), 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route]);
+  useEffect(() => {
     if (route.name !== 'recipe') window.scrollTo(0, 0);
   }, [route.name]);
 
@@ -50,7 +59,7 @@ export default function App() {
     <div className="app">
       <nav className="topnav" aria-label="Main">
         <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); go(''); }}>
-          <span className="brand-mark">🍳</span> Howatson - Le Gal
+          <span className="brand-mark">🍳</span> {t.welcomeKicker} · Howatson - Le Gal
         </a>
         <div className="topnav-links">
           {nav.map((n) => (

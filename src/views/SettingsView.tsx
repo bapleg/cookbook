@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { loadProfiles, saveProfiles } from '../lib/health';
 import { useStore, setPrefs, flush, importRecipes, relayUrl } from '../lib/store';
 import { LANGS } from '../lib/i18n';
 import { Icon, Stepper, SyncDot, toast, useT } from '../components/ui';
@@ -11,6 +12,7 @@ export function SettingsView() {
   const sync = useStore((s) => s.sync);
   const lastSync = useStore((s) => s.lastSync);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [profiles, setProfiles] = useState(loadProfiles);
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
@@ -65,6 +67,21 @@ export function SettingsView() {
       <section className="card-section row-between">
         <h2>{t.household}</h2>
         <Stepper value={prefs.householdServings} onChange={(n) => setPrefs({ householdServings: n })} />
+      </section>
+
+      <section className="card-section">
+        <h2>{t.healthProfiles}</h2>
+        {profiles.length === 0 ? (
+          <p className="small muted">{t.noProfiles}</p>
+        ) : (
+          profiles.map((p) => (
+            <div key={p.id} className="row-between">
+              <span>{p.emoji} <b>{p.name}</b></span>
+              <button className="btn sm" onClick={() => { const next = profiles.filter((x) => x.id !== p.id); saveProfiles(next); setProfiles(next); }}>{t.removeProfile}</button>
+            </div>
+          ))
+        )}
+        <p className="small muted">🔒 {t.healthProfilesHint}</p>
       </section>
 
       <section className="card-section">

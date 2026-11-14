@@ -3,6 +3,7 @@ import { useStore, setPrefs, visibleRecipes, setSlot } from '../lib/store';
 import { textFor, dietOf, matchesDiet, totalMinutes, fmtMinutes } from '../lib/ingredients';
 import { avgRating, isComplete, iso, mealsOn, mondayOf, addDays } from '../lib/plan';
 import { useQuickAdd, openDayPicker } from '../components/menu';
+import { NutriBadge } from '../components/nutrition';
 import { go } from '../lib/router';
 import { Icon, Photo, Sheet, TagPills, toast, useT } from '../components/ui';
 import type { Category, DietFilter, Recipe } from '../lib/types';
@@ -170,7 +171,9 @@ function Welcome() {
         <span>🥕</span><span>🍋</span><span>🧁</span><span>🍅</span><span>🥖</span><span>🍓</span>
       </div>
       <p className="welcome-hi">{hi} 👋</p>
+      <p className="welcome-kicker">{t.welcomeKicker}</p>
       <h1 className="welcome-title">{t.welcomeTitle}</h1>
+      <p className="welcome-script">{t.welcomeScript}</p>
       <p className="welcome-q">{t.welcomeQ}</p>
       <div className="welcome-tonight">
         {tonight.length ? (
@@ -238,6 +241,7 @@ function RecipeCard({ r, lang, fav, rating, plannedKey }: { r: Recipe; lang: 'fr
             </span>
           ) : null}
           {rating > 0 && <span className="rating">★ {rating.toFixed(1)}</span>}
+          <NutriBadge r={r} plain />
         </div>
         <TagPills tags={r.tags} limit={2} />
       </div>

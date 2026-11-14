@@ -7,7 +7,8 @@ export type Route =
   | { name: 'new' }
   | { name: 'plan' }
   | { name: 'shop' }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'profile'; data: string };
 
 export function parseHash(hash: string): Route {
   const h = hash.replace(/^#\/?/, '');
@@ -17,6 +18,7 @@ export function parseHash(hash: string): Route {
   if (a === 'plan') return { name: 'plan' };
   if (a === 'shop') return { name: 'shop' };
   if (a === 'settings') return { name: 'settings' };
+  if (a === 'profile' && b) return { name: 'profile', data: h.slice('profile/'.length) };
   return { name: 'recipes' };
 }
 

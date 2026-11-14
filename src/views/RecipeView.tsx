@@ -5,6 +5,8 @@ import { avgRating, iso, dayLabel, fromIso } from '../lib/plan';
 import { go } from '../lib/router';
 import { Icon, Photo, Stars, Stepper, TagPills, toast, useT } from '../components/ui';
 import { useQuickAdd, openDayPicker } from '../components/menu';
+import { NutritionPanel } from '../components/nutrition';
+import { CookingMode } from '../components/cooking';
 import { LANGS, MEMBERS } from '../lib/i18n';
 import type { Lang, Member } from '../lib/types';
 
@@ -18,30 +20,13 @@ export function RecipeView({ id }: { id: number }) {
   const [servings, setServings] = useState(base || 4);
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [step, setStep] = useState<number | null>(null);
-  const [awake, setAwake] = useState(false);
+  const [cooking, setCooking] = useState(false);
   const quickAdd = useQuickAdd();
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
 
-  // keep the screen on while cooking
-  useEffect(() => {
-    if (!awake || !('wakeLock' in navigator)) return;
-    let lock: { release: () => Promise<void> } | null = null;
-    const req = () =>
-      (navigator as unknown as { wakeLock: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock
-        .request('screen')
-        .then((l) => (lock = l))
-        .catch(() => setAwake(false));
-    req();
-    const onVis = () => document.visibilityState === 'visible' && req();
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      lock?.release().catch(() => {});
-    };
-  }, [awake]);
 
   const upcoming = useMemo(() => {
     const today = iso(new Date());
@@ -111,8 +96,16 @@ export function RecipeView({ id }: { id: number }) {
 
       <div className="recipe-wrap">
         <div className="recipe-head">
-          <div className={'eyebrow cat-text-' + r.category}>
-            <span className="eyebrow-emoji">{r.emoji}</span> {t[`cat_${r.category}` as const]}
+          <div className="eyebrow-row">
+            <span className={'eyebrow cat-text-' + r.category}>
+              <span className="eyebrow-emoji">{r.emoji}</span> {t[`cat_${r.category}` as const]}
+            </span>
+            {r.author && (
+              <span className="from-inline" title={t.recipeFrom}>
+                <span aria-hidden="true">{authorEmoji(r.author)}</span>
+                <span className="from-label">{t.recipeFrom}</span> <b>{r.author}</b>
+              </span>
+            )}
           </div>
           <h1>{tx.title}</h1>
           <div className="facts">
@@ -125,15 +118,6 @@ export function RecipeView({ id }: { id: number }) {
             {avg > 0 && <span className="rating">★ {avg.toFixed(1)}</span>}
           </div>
           <TagPills tags={r.tags} />
-          {r.author && (
-            <div className="from-card">
-              <span className="from-avatar" aria-hidden="true">{authorEmoji(r.author)}</span>
-              <span>
-                <span className="small muted">{t.recipeFrom}</span>
-                <b>{r.author}</b>
-              </span>
-            </div>
-          )}
           {available.length > 1 && (
             <div className="seg" role="tablist">
               {available.map((l) => (
@@ -157,9 +141,11 @@ export function RecipeView({ id }: { id: number }) {
             <button className={'btn' + (fav ? ' fav-on' : '')} onClick={() => toggleFav(r.id)}>
               <Icon name="heart" size={18} fill={fav} /> {t.favourites}
             </button>
-            <button className={'btn' + (awake ? ' on' : '')} onClick={() => setAwake(!awake)} title={t.keepAwake}>
-              <Icon name="sun" size={18} /> {t.keepAwake}
-            </button>
+            {steps.length > 0 && (
+              <button className="btn cook-btn" onClick={() => setCooking(true)}>
+                <Icon name="clock" size={18} /> {t.cookingMode}
+              </button>
+            )}
           </div>
         </div>
 
@@ -220,6 +206,8 @@ export function RecipeView({ id }: { id: number }) {
           </section>
         </div>
 
+        <NutritionPanel r={r} ratio={ratio} lang={lang} />
+
         <section className="family">
           <h2>{t.family}</h2>
           <div className="members">
@@ -238,7 +226,7 @@ export function RecipeView({ id }: { id: number }) {
           <button className="btn danger" onClick={del}><Icon name="trash" size={18} /> {t.delete}</button>
         </div>
       </div>
-
+      {cooking && <CookingMode text={tx} steps={steps} ratio={ratio} title={tx.title} onClose={() => setCooking(false)} />}
     </div>
   );
 }

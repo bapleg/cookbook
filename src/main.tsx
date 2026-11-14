@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import { startSync } from './lib/store';
 import '@fontsource-variable/nunito';
+import '@fontsource/caveat/700.css';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(

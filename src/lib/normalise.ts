@@ -123,7 +123,7 @@ export function toMetric(line: string): string {
   // ranges like "1-1.5 cups": keep the upper bound
   s = s.replace(/(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)(?=\s*cups?\b)/gi, (_, _a, b) => b);
   // cups
-  s = s.replace(new RegExp(NUM + '\\s*cups?\\b(\\s+(?:of\\s+)?)?([^,.;:]{0,40})', 'gi'), (_, n, sp, rest) => {
+  s = s.replace(new RegExp(NUM + '\\s*(?:cups?|tasses?)\\b(\\s+(?:of\\s+|de\\s+|d\'|d’)?)?([^,.;:]{0,40})', 'gi'), (_, n, sp, rest) => {
     return `${cupsTo(toNumber(n), rest || '')}${sp || ' '}${rest || ''}`.replace(/\s+$/, '');
   });
   // fl oz before oz
