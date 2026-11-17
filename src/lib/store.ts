@@ -143,6 +143,10 @@ export function upsertExtra(e: Omit<ShopExtra, 't'>) {
 export function setPantry(key: string, on: boolean) {
   change({ pantry: { [key]: { on, t: now() } } });
 }
+/** Custom RedMart product link for a shopping line (empty url = back to the automatic match). */
+export function setRedmartLink(key: string, url: string) {
+  change({ pantry: { [`rm:${key}`]: { on: !!url, t: now(), url } } });
+}
 export function importRecipes(list: Recipe[]) {
   const t = now();
   change({ recipes: list.map((r, i) => ({ ...r, updatedAt: t + i })) });

@@ -599,3 +599,14 @@ body.dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; 
 .rm-link { flex: none; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.95rem; background: var(--bg-soft); opacity: 0.6; }
 .rm-link.known { opacity: 1; background: var(--accent-soft); }
 .rm-product { color: var(--accent-text); font-weight: 700; }
+
+.rm-cart-btn { width: 100%; margin-top: 10px; justify-content: center; }
+.rm-item.off { opacity: 0.45; }
+.rm-item .shop-text { flex-direction: column; align-items: flex-start; gap: 2px; cursor: default; }
+.rm-target { color: var(--accent-text); text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+.rm-target.rm-search { color: var(--text-soft, inherit); font-weight: 400; }
+.rm-edit { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.rm-edit input { width: 100%; }
+.rm-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+.rm-foot .btn { flex: 1 1 auto; justify-content: center; }
+.rm-item .check.on { background: var(--accent); border-color: var(--accent); }

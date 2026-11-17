@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useStore, setCheck, setChecks, upsertExtra, setPantry, setPrefs } from '../lib/store';
+import { useStore, setCheck, setChecks, upsertExtra, setPantry, setPrefs, setRedmartLink } from '../lib/store';
 import { DEFAULT_STAPLES, stapleLabel, redmartMatch, redmartUrl, redmartSearchUrl } from '../data/redmart';
 import { buildShoppingList, parseServings, textFor, AISLE_ORDER, AISLE_EMOJI, aisleOf, type ShopLine, type Aisle } from '../lib/ingredients';
 import { iso, addDays, mondayOf } from '../lib/plan';
 import { go } from '../lib/router';
-import { Icon, toast, useT } from '../components/ui';
+import { Icon, Sheet, toast, useT } from '../components/ui';
 
 type Range = 'week' | 'next7' | 'next14';
 
@@ -18,6 +18,7 @@ export function ShopView() {
   const [editStaples, setEditStaples] = useState(false);
   const [newStaple, setNewStaple] = useState('');
   const rm = prefs.redmart;
+  const [cartOpen, setCartOpen] = useState(false);
 
   const { from, to } = useMemo(() => {
     const today = new Date();
@@ -66,6 +67,21 @@ export function ShopView() {
     if (ex) upsertExtra({ ...ex, deleted: true });
     else upsertExtra({ id: `x${Date.now().toString(36)}`, text: label, checked: false });
   };
+
+  // RedMart: product for a line = custom link (synced) > product bought before > search
+  const resolve = (key: string, text: string, label = text): RmTarget => {
+    const custom = data.shopping.pantry[`rm:${key}`];
+    if (custom?.on && custom.url) return { url: custom.url, name: t.rmCustom, kind: 'custom' };
+    const p = redmartMatch(text);
+    if (p) return { url: redmartUrl(p), name: p.n + (p.size ? ` · ${p.size}` : ''), kind: 'known' };
+    return { url: redmartSearchUrl(label), name: `${t.rmSearchFor} ${label}`, kind: 'search' };
+  };
+  const cartItems: CartItem[] = [
+    ...main.filter((l) => !isChecked(l.key)).map((l) => ({ key: l.key, label: l.label, qty: l.amounts.join(' + '), target: resolve(l.key, `${l.label} ${l.key}`, l.label), tick: () => setCheck(ck(l.key), true) })),
+    ...extras.filter((e) => !e.checked).map((e) => ({ key: `x:${e.text.toLowerCase()}`, label: e.text, qty: '', target: resolve(`x:${e.text.toLowerCase()}`, e.text), tick: () => upsertExtra({ ...e, checked: true }) }))
+  ];
+  const offKey = (key: string) => `rmoff:${from}:${key}`;
+  const isSelected = (key: string) => !data.shopping.pantry[offKey(key)]?.on;
 
   const groups = AISLE_ORDER.map((a) => ({ aisle: a, items: main.filter((l) => l.aisle === a) })).filter((g) => g.items.length);
   const total = main.length + extras.length;
@@ -141,6 +157,11 @@ export function ShopView() {
             {done > 0 && <button className="link-btn small" onClick={uncheckAll}>{t.uncheckAll}</button>}
           </div>
         )}
+        {rm && cartItems.length > 0 && (
+          <button className="btn primary rm-cart-btn" data-testid="rm-cart-open" onClick={() => setCartOpen(true)}>
+            🛒 {t.rmCart} · {cartItems.filter((i) => isSelected(i.key)).length}
+          </button>
+        )}
         {sources.length > 0 && (
           <p className="small muted for-line">
             {t.forRecipes} {[...new Set(sources.map((s) => s.title))].join(' · ')}
@@ -200,7 +221,7 @@ export function ShopView() {
                     onExpand={() => setOpenDetails(openDetails === l.key ? null : l.key)}
                     onPantry={() => setPantry(l.key, true)}
                     pantryLabel={t.alwaysHave}
-                    redmart={rm}
+                    target={rm ? resolve(l.key, `${l.label} ${l.key}`, l.label) : null}
                   />
                 ))}
               </ul>
@@ -220,7 +241,7 @@ export function ShopView() {
                       <span className="shop-label">{e.text}</span>
                       <span className="small muted">{AISLE_EMOJI[aisleOf(e.text.toLowerCase()) as Aisle]}</span>
                     </span>
-                    {rm && <RedmartLink text={e.text} />}
+                    {rm && <RedmartLink target={resolve(`x:${e.text.toLowerCase()}`, e.text)} />}
                     <button className="icon-btn sm" onClick={() => upsertExtra({ ...e, deleted: true })} aria-label={t.remove}><Icon name="close" size={16} /></button>
                   </li>
                 ))}
@@ -243,25 +264,109 @@ export function ShopView() {
           )}
         </>
       )}
+      <RedmartCart
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cartItems}
+        isSelected={isSelected}
+        setSelected={(key, on) => setPantry(offKey(key), !on)}
+      />
     </div>
   );
 }
 
-function RedmartLink({ text }: { text: string }) {
+interface RmTarget { url: string; name: string; kind: 'custom' | 'known' | 'search' }
+interface CartItem { key: string; label: string; qty: string; target: RmTarget; tick: () => void }
+
+function RedmartCart({ open, onClose, items, isSelected, setSelected }: {
+  open: boolean; onClose: () => void; items: CartItem[]; isSelected: (key: string) => boolean; setSelected: (key: string, on: boolean) => void;
+}) {
   const t = useT();
-  const p = redmartMatch(text);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [next, setNext] = useState(0);
+  const sel = items.filter((i) => isSelected(i.key));
+  const allOn = sel.length === items.length;
+
+  const save = (key: string) => {
+    const url = draft.trim();
+    if (url && !/^https:\/\//i.test(url)) return toast(t.rmBadUrl);
+    setRedmartLink(key, url);
+    setEditing(null);
+  };
+  // browsers only allow one new tab per tap, so products open one tap at a time
+  const openNext = () => {
+    const i = next >= sel.length ? 0 : next;
+    window.open(sel[i].target.url, '_blank', 'noopener');
+    setNext(i + 1);
+  };
+  const copy = async () => {
+    const text = sel.map((i) => `- ${i.label}${i.qty ? ` — ${i.qty}` : ''} → ${i.target.url}`).join('\n');
+    try { await navigator.clipboard.writeText(text); toast(t.copied); } catch { toast(text); }
+  };
+
   return (
-    <a className={'rm-link' + (p ? ' known' : '')} href={p ? redmartUrl(p) : redmartSearchUrl(text)} target="_blank" rel="noreferrer" title={p ? `${t.redmartBought} ${p.n}` : t.redmartSearch} aria-label={p ? `${t.redmartBought} ${p.n}` : t.redmartSearch} onClick={(e) => e.stopPropagation()}>
-      {p ? '🛒' : '🔍'}
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={`🛒 ${t.rmCart} (${sel.length}/${items.length})`}
+      footer={
+        <div className="rm-foot">
+          <button className="btn primary" disabled={!sel.length} onClick={openNext}>
+            {next > 0 && next < sel.length ? t.rmOpenNext(next + 1, sel.length) : t.rmOpen(sel.length)}
+          </button>
+          <button className="btn" disabled={!sel.length} onClick={copy}>{t.rmCopy}</button>
+          <button className="btn" disabled={!sel.length} onClick={() => { sel.forEach((i) => i.tick()); onClose(); }}>{t.rmMarkBought}</button>
+        </div>
+      }
+    >
+      <p className="small muted">{t.rmCartHint}</p>
+      <button className="link-btn" data-testid="rm-select-all" onClick={() => items.forEach((i) => isSelected(i.key) === allOn && setSelected(i.key, !allOn))}>
+        {allOn ? t.rmSelectNone : t.rmSelectAll}
+      </button>
+      <ul className="shop-list rm-cart" data-testid="rm-cart">
+        {items.map((i) => {
+          const on = isSelected(i.key);
+          return (
+            <li key={i.key} className={'shop-item rm-item' + (on ? '' : ' off')} data-rm-item data-selected={on} data-label={i.label} data-qty={i.qty} data-url={i.target.url} data-kind={i.target.kind}>
+              <button className={'check' + (on ? ' on' : '')} onClick={() => setSelected(i.key, !on)} aria-pressed={on} aria-label={i.label}>
+                {on && <Icon name="check" size={14} />}
+              </button>
+              <span className="shop-text">
+                <span className="shop-label">{i.label}{i.qty && <span className="shop-qty"> {i.qty}</span>}</span>
+                <a className={'small rm-target rm-' + i.target.kind} href={i.target.url} target="_blank" rel="noreferrer">{i.target.kind === 'search' ? '🔍' : '🛒'} {i.target.name}</a>
+              </span>
+              <button className="icon-btn sm" aria-label={t.rmEdit} title={t.rmEdit} onClick={() => { setEditing(editing === i.key ? null : i.key); setDraft(i.target.kind === 'custom' ? i.target.url : ''); }}>
+                <Icon name="edit" size={16} />
+              </button>
+              {editing === i.key && (
+                <div className="shop-details rm-edit">
+                  <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={t.rmPaste} aria-label={t.rmPaste} inputMode="url" onKeyDown={(e) => e.key === 'Enter' && save(i.key)} />
+                  <div className="row-gap">
+                    <button className="btn primary sm" onClick={() => save(i.key)}>{t.rmSave}</button>
+                    {i.target.kind === 'custom' && <button className="link-btn small" onClick={() => { setRedmartLink(i.key, ''); setEditing(null); }}>{t.rmReset}</button>}
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Sheet>
+  );
+}
+
+function RedmartLink({ target }: { target: RmTarget }) {
+  return (
+    <a className={'rm-link' + (target.kind === 'search' ? '' : ' known')} href={target.url} target="_blank" rel="noreferrer" title={target.name} aria-label={target.name} onClick={(e) => e.stopPropagation()}>
+      {target.kind === 'search' ? '🔍' : '🛒'}
     </a>
   );
 }
 
-function ShopItem({ line, checked, onToggle, expanded, onExpand, onPantry, pantryLabel, redmart }: {
-  line: ShopLine; checked: boolean; onToggle: () => void; expanded: boolean; onExpand: () => void; onPantry: () => void; pantryLabel: string; redmart: boolean;
+function ShopItem({ line, checked, onToggle, expanded, onExpand, onPantry, pantryLabel, target }: {
+  line: ShopLine; checked: boolean; onToggle: () => void; expanded: boolean; onExpand: () => void; onPantry: () => void; pantryLabel: string; target: RmTarget | null;
 }) {
-  const t = useT();
-  const product = redmart ? redmartMatch(`${line.label} ${line.key}`) : null;
   return (
     <li className={'shop-item' + (checked ? ' done' : '')}>
       <button className="check" onClick={onToggle} aria-pressed={checked} aria-label={line.label}>
@@ -271,14 +376,14 @@ function ShopItem({ line, checked, onToggle, expanded, onExpand, onPantry, pantr
         <span className="shop-label">{line.label}</span>
         {line.amounts.length > 0 && <span className="shop-qty">{line.amounts.join(' + ')}</span>}
       </span>
-      {redmart && <RedmartLink text={`${line.label} ${line.key}`} />}
+      {target && <RedmartLink target={target} />}
       <button className="icon-btn sm" onClick={onExpand} aria-label="details" aria-expanded={expanded}>
         <Icon name="more" size={16} />
       </button>
       {expanded && (
         <div className="shop-details">
-          {product && (
-            <a className="small rm-product" href={redmartUrl(product)} target="_blank" rel="noreferrer">🛒 {t.redmartBought} {product.n}{product.size ? ` · ${product.size}` : ''}</a>
+          {target && target.kind !== 'search' && (
+            <a className="small rm-product" href={target.url} target="_blank" rel="noreferrer">🛒 {target.name}</a>
           )}
           {line.details.map((d, i) => (
             <div key={i} className="small muted">• {d}</div>

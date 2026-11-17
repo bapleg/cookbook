@@ -53,7 +53,8 @@ export interface Shopping {
   checks: Record<string, ShopCheck>;
   extras: Record<string, ShopExtra>;
   /** Ingredients the family always has (normalised names) -> timestamp; value null = removed. */
-  pantry: Record<string, { on: boolean; t: number }>;
+  /** also carries shopping settings: `staple:<name>`, `rm:<key>` (custom RedMart link in `url`), `rmoff:<period>:<key>` */
+  pantry: Record<string, { on: boolean; t: number; url?: string }>;
 }
 
 export interface SharedData {
