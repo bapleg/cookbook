@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useStore, setCheck, setChecks, upsertExtra, setPantry } from '../lib/store';
+import { useStore, setCheck, setChecks, upsertExtra, setPantry, setPrefs } from '../lib/store';
+import { DEFAULT_STAPLES, stapleLabel, redmartMatch, redmartUrl, redmartSearchUrl } from '../data/redmart';
 import { buildShoppingList, parseServings, textFor, AISLE_ORDER, AISLE_EMOJI, aisleOf, type ShopLine, type Aisle } from '../lib/ingredients';
 import { iso, addDays, mondayOf } from '../lib/plan';
 import { go } from '../lib/router';
@@ -14,6 +15,9 @@ export function ShopView() {
   const [range, setRange] = useState<Range>(() => (localStorage.getItem('cb_shop_range') as Range) || 'next7');
   const [newItem, setNewItem] = useState('');
   const [openDetails, setOpenDetails] = useState<string | null>(null);
+  const [editStaples, setEditStaples] = useState(false);
+  const [newStaple, setNewStaple] = useState('');
+  const rm = prefs.redmart;
 
   const { from, to } = useMemo(() => {
     const today = new Date();
@@ -48,6 +52,20 @@ export function ShopView() {
   const main = lines.filter((l) => !inPantry(l));
   const pantry = lines.filter((l) => inPantry(l));
   const extras = Object.values(data.shopping.extras).filter((e) => !e.deleted);
+
+  // staples: defaults + family additions, minus removals (synced via the pantry map, keys "staple:<name>")
+  const staples = useMemo(() => {
+    const set = new Map<string, boolean>(DEFAULT_STAPLES.map((n) => [n, true]));
+    for (const [k, v] of Object.entries(data.shopping.pantry)) if (k.startsWith('staple:')) set.set(k.slice(7), v.on);
+    return [...set].filter(([, on]) => on).map(([n]) => n);
+  }, [data.shopping.pantry]);
+  const hasExtra = (name: string) => extras.find((e) => e.text.toLowerCase() === name.toLowerCase());
+  const toggleStaple = (name: string) => {
+    const label = stapleLabel(name, prefs.lang);
+    const ex = hasExtra(label);
+    if (ex) upsertExtra({ ...ex, deleted: true });
+    else upsertExtra({ id: `x${Date.now().toString(36)}`, text: label, checked: false });
+  };
 
   const groups = AISLE_ORDER.map((a) => ({ aisle: a, items: main.filter((l) => l.aisle === a) })).filter((g) => g.items.length);
   const total = main.length + extras.length;
@@ -113,6 +131,8 @@ export function ShopView() {
               {r === 'week' ? t.shopRangeWeek : r === 'next7' ? t.shopRangeNext : t.shopRange2}
             </button>
           ))}
+          <span className="chip-sep" />
+          <button className={'chip' + (rm ? ' on' : '')} onClick={() => setPrefs({ redmart: !rm })}>🛒 {t.redmartBeta}</button>
         </div>
         {total > 0 && (
           <div className="progress-row">
@@ -132,6 +152,30 @@ export function ShopView() {
         <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addExtra()} placeholder={t.addItem} aria-label={t.addItem} />
         <button className="icon-btn accent" onClick={addExtra} aria-label={t.addItem}><Icon name="plus" /></button>
       </div>
+
+      <section className="aisle staples">
+        <div className="row-between">
+          <h2>🧺 {t.staples}</h2>
+          <button className="link-btn small" onClick={() => setEditStaples(!editStaples)}>{editStaples ? t.staplesDone : t.staplesEdit}</button>
+        </div>
+        <div className="chips wrap">
+          {staples.map((n) => {
+            const label = stapleLabel(n, prefs.lang);
+            const on = !!hasExtra(label);
+            return editStaples ? (
+              <button key={n} className="chip" onClick={() => setPantry(`staple:${n}`, false)}><Icon name="close" size={12} /> {label}</button>
+            ) : (
+              <button key={n} className={'chip' + (on ? ' on' : '')} onClick={() => toggleStaple(n)}><Icon name={on ? 'check' : 'plus'} size={12} /> {label}</button>
+            );
+          })}
+        </div>
+        {editStaples && (
+          <div className="add-item">
+            <input value={newStaple} onChange={(e) => setNewStaple(e.target.value)} placeholder={t.staplesAdd} onKeyDown={(e) => { if (e.key === 'Enter' && newStaple.trim()) { setPantry(`staple:${newStaple.trim()}`, true); setNewStaple(''); } }} />
+            <button className="icon-btn accent" aria-label={t.staplesAdd} onClick={() => { if (newStaple.trim()) { setPantry(`staple:${newStaple.trim()}`, true); setNewStaple(''); } }}><Icon name="plus" /></button>
+          </div>
+        )}
+      </section>
 
       {total === 0 && pantry.length === 0 ? (
         <div className="empty">
@@ -156,6 +200,7 @@ export function ShopView() {
                     onExpand={() => setOpenDetails(openDetails === l.key ? null : l.key)}
                     onPantry={() => setPantry(l.key, true)}
                     pantryLabel={t.alwaysHave}
+                    redmart={rm}
                   />
                 ))}
               </ul>
@@ -175,6 +220,7 @@ export function ShopView() {
                       <span className="shop-label">{e.text}</span>
                       <span className="small muted">{AISLE_EMOJI[aisleOf(e.text.toLowerCase()) as Aisle]}</span>
                     </span>
+                    {rm && <RedmartLink text={e.text} />}
                     <button className="icon-btn sm" onClick={() => upsertExtra({ ...e, deleted: true })} aria-label={t.remove}><Icon name="close" size={16} /></button>
                   </li>
                 ))}
@@ -201,9 +247,21 @@ export function ShopView() {
   );
 }
 
-function ShopItem({ line, checked, onToggle, expanded, onExpand, onPantry, pantryLabel }: {
-  line: ShopLine; checked: boolean; onToggle: () => void; expanded: boolean; onExpand: () => void; onPantry: () => void; pantryLabel: string;
+function RedmartLink({ text }: { text: string }) {
+  const t = useT();
+  const p = redmartMatch(text);
+  return (
+    <a className={'rm-link' + (p ? ' known' : '')} href={p ? redmartUrl(p) : redmartSearchUrl(text)} target="_blank" rel="noreferrer" title={p ? `${t.redmartBought} ${p.n}` : t.redmartSearch} aria-label={p ? `${t.redmartBought} ${p.n}` : t.redmartSearch} onClick={(e) => e.stopPropagation()}>
+      {p ? '🛒' : '🔍'}
+    </a>
+  );
+}
+
+function ShopItem({ line, checked, onToggle, expanded, onExpand, onPantry, pantryLabel, redmart }: {
+  line: ShopLine; checked: boolean; onToggle: () => void; expanded: boolean; onExpand: () => void; onPantry: () => void; pantryLabel: string; redmart: boolean;
 }) {
+  const t = useT();
+  const product = redmart ? redmartMatch(`${line.label} ${line.key}`) : null;
   return (
     <li className={'shop-item' + (checked ? ' done' : '')}>
       <button className="check" onClick={onToggle} aria-pressed={checked} aria-label={line.label}>
@@ -213,11 +271,15 @@ function ShopItem({ line, checked, onToggle, expanded, onExpand, onPantry, pantr
         <span className="shop-label">{line.label}</span>
         {line.amounts.length > 0 && <span className="shop-qty">{line.amounts.join(' + ')}</span>}
       </span>
+      {redmart && <RedmartLink text={`${line.label} ${line.key}`} />}
       <button className="icon-btn sm" onClick={onExpand} aria-label="details" aria-expanded={expanded}>
         <Icon name="more" size={16} />
       </button>
       {expanded && (
         <div className="shop-details">
+          {product && (
+            <a className="small rm-product" href={redmartUrl(product)} target="_blank" rel="noreferrer">🛒 {t.redmartBought} {product.n}{product.size ? ` · ${product.size}` : ''}</a>
+          )}
           {line.details.map((d, i) => (
             <div key={i} className="small muted">• {d}</div>
           ))}

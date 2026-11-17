@@ -52,6 +52,7 @@ let state: State = {
     weeks: 1,
     dietFilters: [],
     theme: 'auto',
+    redmart: true,
     ...read<Partial<LocalPrefs>>(K_PREFS, {})
   },
   sync: RELAY_URL ? 'idle' : 'local',

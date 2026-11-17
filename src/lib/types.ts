@@ -71,6 +71,7 @@ export interface LocalPrefs {
   weeks: 1 | 2;
   dietFilters: DietFilter[];
   theme: 'auto' | 'light' | 'dark';
+  redmart: boolean;
 }
 
 export type DietFilter = 'veg' | 'gf' | 'df' | 'ef' | 'quick';

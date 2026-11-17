@@ -19,7 +19,7 @@ export const FAMILY_PROFILES: HealthProfile[] = [
     "avoid": [
       {
         "label": "gluten (blé, pâtes, pain, semoule…)",
-        "re": "(farine|flour)(?! de (riz|maïs|mais|sarrasin|coco|pois|châtaigne|amande))|(^|[^a-zà-ÿ])blé(?![a-zà-ÿ])|froment|semoule|couscous|boulgour|bulgur|\\borge\\b|seigle|\\brye\\b|barley|(pâtes|pasta|spaghetti|tagliatelle|penne|coquillettes?|conchiglion|gigli|macaroni|nouilles|noodles|lasagne)(?![^,]*sans gluten)|\\bpain\\b|bread|baguette|brioche|pita|naan|tortillas?(?! de maïs)|chapelure|breadcrumbs|panko|sauce soja(?! sans gluten)|soy sauce|pâte (?:feuilletée|brisée)|puff pastry|biscuits?"
+        "re": "(farine|flour)(?! de (riz|maïs|mais|sarrasin|coco|pois|châtaigne|amande))|(^|[^a-zà-ÿ])blé(?![a-zà-ÿ])|froment|semoule|couscous|boulgour|bulgur|\\borge\\b|seigle|\\brye\\b|barley|(pâtes|pasta|spaghetti|tagliatelle|penne|coquillettes?|conchiglion|gigli|macaroni|nouilles|noodles|lasagne)(?![^,]*(sans gluten|gluten[- ]free|sarrasin|buckwheat|de riz|rice))|\\bpain\\b|bread|baguette|brioche|pita|naan|tortillas?(?! de maïs)|chapelure|breadcrumbs|panko|sauce soja(?! sans gluten)|soy sauce|pâte (?:feuilletée|brisée)|puff pastry|biscuits?"
       },
       {
         "label": "lait de vache / caséine",
@@ -59,7 +59,7 @@ export const FAMILY_PROFILES: HealthProfile[] = [
       },
       {
         "label": "courge butternut",
-        "re": "butternut|courge|squash"
+        "re": "butternut|courge(?!tte)|squash"
       },
       {
         "label": "églefin (haddock)",
